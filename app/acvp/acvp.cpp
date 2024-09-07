@@ -229,7 +229,10 @@ bool TrustyAcvpTool::MapShm(handle_t shm, size_t size) {
 
 void TrustyAcvpTool::MessageCleanup() {
     if (arg_buffer_) {
-        munmap((void*)arg_buffer_, arg_buffer_size_);
+        int rc = munmap((void*)arg_buffer_, arg_buffer_size_);
+        if (rc != NO_ERROR) {
+            TLOGW("munmap() failed: %d\n", rc);
+        }
         arg_buffer_ = NULL;
     }
 

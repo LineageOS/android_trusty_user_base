@@ -309,8 +309,11 @@ static uint32_t apploader_copy_package(handle_t req_handle,
     *out_package = resp_package;
     resp_error = APPLOADER_NO_ERROR;
 
-err_resp_mmap:
-    munmap(req_package, aligned_size);
+err_resp_mmap:;
+    int rc = munmap(req_package, aligned_size);
+    if (rc != NO_ERROR) {
+        TLOGW("munmap() failed: %d\n", rc);
+    }
 err_req_mmap:
     close(secure_mem_handle);
 err_invalid_secure_mem_handle:
@@ -480,7 +483,11 @@ static int apploader_handle_cmd_load_app(handle_t chan,
 
     ptrdiff_t elf_offset = pkg_meta.elf_start - package;
     ptrdiff_t manifest_offset = pkg_meta.manifest_start - package;
-    munmap(package, aligned_size);
+    rc = munmap(package, aligned_size);
+    if (rc != NO_ERROR) {
+        TLOGW("munmap() failed: %d\n", rc);
+    }
+
     package = NULL;
 
     /* Validate the relocated offsets */
@@ -502,7 +509,10 @@ err_no_load:
     }
 
     if (package) {
-        munmap(package, aligned_size);
+        rc = munmap(package, aligned_size);
+        if (rc != NO_ERROR) {
+            TLOGW("munmap() failed: %d\n", rc);
+        }
     }
 err_copy_package:
     close(secure_chan);

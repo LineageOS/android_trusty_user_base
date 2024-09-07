@@ -146,7 +146,10 @@ static int hwaes_map_shm(size_t num,
 static void hwaes_unmap_shm(size_t num, struct shm* shms) {
     for (size_t i = 0; i < num; i++) {
         if (shms[i].size) {
-            munmap(shms[i].base, shms[i].size);
+            int rc = munmap(shms[i].base, shms[i].size);
+            if (rc != NO_ERROR) {
+                TLOGW("munmap() failed: %d\n", rc);
+            }
         }
     }
 }

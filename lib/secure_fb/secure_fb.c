@@ -50,7 +50,10 @@ static void free_secure_fb_session(struct secure_fb_session* s) {
     for (size_t i = 0; i < SECURE_FB_MAX_FBS; ++i) {
         uint8_t** buffer = &s->fbs[i].fb_info.buffer;
         if (*buffer) {
-            munmap(*buffer, s->fbs[i].fb_info.size);
+            int rc = munmap(*buffer, s->fbs[i].fb_info.size);
+            if (rc != NO_ERROR) {
+                TLOGW("munmap() failed: %d\n", rc);
+            }
             *buffer = NULL;
         }
     }
@@ -140,7 +143,10 @@ err:
     for (size_t i = 0; i < num_fbs; i++) {
         fb = &fbs[i];
         if (fb->fb_info.buffer) {
-            munmap(fb->fb_info.buffer, fb->fb_info.size);
+            int rc = munmap(fb->fb_info.buffer, fb->fb_info.size);
+            if (rc != NO_ERROR) {
+                TLOGW("munmap() failed: %d\n", rc);
+            }
         }
         memset(fb, 0, sizeof(*fb));
     }

@@ -88,7 +88,7 @@ int setup_shm(void) {
     int event = READ_ONCE(*app_mailbox);
 
     if (event != COVERAGE_MAILBOX_RECORD_READY) {
-        TLOGE("NS memory not shared yet\n");
+        TLOGD("NS memory not shared yet\n");
         return -1;
     }
     if (cov_shm_is_mapped(&ctx.data)) {

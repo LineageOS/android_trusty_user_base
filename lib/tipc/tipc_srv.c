@@ -303,6 +303,31 @@ static void port_event_handler_proc(const struct uevent* ev, void* ctx) {
 }
 
 /*
+ * Validate trusty service operations.
+ *
+ * Trusty service operations must satisfy the following requirements:
+ * - service operations is a required parameter and must not be NULL
+ * - on_message callback is mandatory and must be implemented by the service
+ *
+ * This function validates the above service operations requirements are met
+ * by the passed service operation structure, and returns true; otherwise, it
+ * returns false.
+ */
+static bool is_valid_tipc_srv_ops(const struct tipc_srv_ops* ops) {
+    if (!ops) {
+        TLOGE("Required service specific operations is NULL\n");
+        return false;
+    }
+
+    if (!ops->on_message) {
+        TLOGE("on_message callback is mandatory and cannot be NULL\n");
+        return false;
+    }
+
+    return true;
+}
+
+/*
  *  Add new TIPC service to handle set
  */
 int tipc_add_service(struct tipc_hset* hset,
@@ -320,8 +345,13 @@ int tipc_add_service(struct tipc_hset* hset,
         return ERR_INVALID_ARGS;
     }
 
-    if (!hset || !ports || !num_ports || !ops) {
+    if (!hset || !ports || !num_ports) {
         TLOGE("required parameter is missing\n");
+        return ERR_INVALID_ARGS;
+    }
+
+    if (!is_valid_tipc_srv_ops(ops)) {
+        TLOGE("Service operations failed validation\n");
         return ERR_INVALID_ARGS;
     }
 

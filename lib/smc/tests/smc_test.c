@@ -263,8 +263,10 @@ TEST_F(smc, GENERIC_ARM64_PLATFORM_ONLY_TEST(validate_dma_arguments)) {
 
     /* fallthrough */
 test_abort:
-    finish_dma(va_base, len, dma_flags);
-    munmap(va_base, len);
+    if (va_base != MAP_FAILED) {
+        EXPECT_EQ(NO_ERROR, finish_dma(va_base, len, dma_flags));
+        EXPECT_EQ(NO_ERROR, munmap(va_base, len));
+    }
 }
 
 PORT_TEST(smc, "com.android.trusty.smc.test");

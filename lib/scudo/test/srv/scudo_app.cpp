@@ -333,7 +333,7 @@ static int scudo_on_message(const struct tipc_port* port,
         if (mapped != MAP_FAILED) {
             TLOGI("Tagged memref should have failed\n");
             msg.cmd = SCUDO_TEST_FAIL;
-            munmap((void*)mapped, memrefsize);
+            (void)munmap((void*)mapped, memrefsize);
             close(memref);
             break;
         }
@@ -348,7 +348,7 @@ static int scudo_on_message(const struct tipc_port* port,
             break;
         }
         *mapped = 0x77;
-        munmap((void*)mapped, memrefsize);
+        (void)munmap((void*)mapped, memrefsize);
         close(memref);
         break;
     }
@@ -372,7 +372,7 @@ static int scudo_on_message(const struct tipc_port* port,
             break;
         }
         *mapped = 0x77;
-        munmap((void*)mapped, memrefsize);
+        (void)munmap((void*)mapped, memrefsize);
         close(memref);
         break;
     }

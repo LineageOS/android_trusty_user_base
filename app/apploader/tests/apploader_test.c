@@ -650,7 +650,7 @@ TEST_F(apploader_service, GetMemory) {
 
 test_abort:
     if (buf) {
-        munmap(buf, page_size);
+        EXPECT_EQ(NO_ERROR, munmap(buf, page_size));
     }
 }
 
@@ -803,7 +803,7 @@ TEST_F(apploader_service, LoadCmdHoldMapping) {
 
 test_abort:
     if (buf) {
-        munmap(buf, buf_size);
+        EXPECT_EQ(NO_ERROR, munmap(buf, buf_size));
     }
 }
 
@@ -816,7 +816,7 @@ TEST_F(apploader_service, BadLoadCmdImageELFHeader) {
 
     /* Fill the image contents with 0x5a, so the ELF header check fails */
     memset(buf, 0x5a, buf_size);
-    munmap(buf, buf_size);
+    EXPECT_EQ(NO_ERROR, munmap(buf, buf_size));
     buf = NULL;
 
     uint32_t error;
@@ -833,7 +833,7 @@ TEST_F(apploader_service, BadLoadCmdImageELFHeader) {
 
 test_abort:
     if (buf) {
-        munmap(buf, buf_size);
+        EXPECT_EQ(NO_ERROR, munmap(buf, buf_size));
     }
 }
 

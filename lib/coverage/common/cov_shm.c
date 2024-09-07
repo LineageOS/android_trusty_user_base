@@ -84,7 +84,10 @@ int cov_shm_mmap(struct cov_shm* shm, handle_t memref, size_t len) {
 void cov_shm_munmap(struct cov_shm* shm) {
     assert(cov_shm_is_mapped(shm));
 
-    munmap(shm->base, shm->len);
+    int rc = munmap(shm->base, shm->len);
+    if (rc != NO_ERROR) {
+        TLOGW("failed to munmap() shared memory (rc=%d)\n", rc);
+    }
     close(shm->memref);
     shm->memref = INVALID_IPC_HANDLE;
     shm->base = NULL;
