@@ -269,6 +269,7 @@ static uint32_t apploader_send_secure_load_command(
 
 static uint32_t apploader_copy_package(handle_t req_handle,
                                        handle_t secure_chan,
+                                       uint64_t package_size,
                                        uint64_t aligned_size,
                                        uint8_t** out_package) {
     uint32_t resp_error;
@@ -305,7 +306,9 @@ static uint32_t apploader_copy_package(handle_t req_handle,
     }
 
     assert(out_package);
-    memcpy(resp_package, req_package, aligned_size);
+    assert(package_size <= aligned_size);
+    memcpy(resp_package, req_package, package_size);
+    memset(resp_package + package_size, 0, aligned_size - package_size);
     *out_package = resp_package;
     resp_error = APPLOADER_NO_ERROR;
 
@@ -387,8 +390,8 @@ static int apploader_handle_cmd_load_app(handle_t chan,
 
     uint32_t copy_error;
     uint8_t* package;
-    copy_error = apploader_copy_package(req_handle, secure_chan, aligned_size,
-                                        &package);
+    copy_error = apploader_copy_package(
+            req_handle, secure_chan, req->package_size, aligned_size, &package);
     if (copy_error != APPLOADER_NO_ERROR) {
         TLOGE("Failed to copy package from client\n");
         resp_error = copy_error;
