@@ -236,6 +236,68 @@ err_bad_cbor:
     return rc;
 }
 
+int keymaster_get_uds_certs(keymaster_session_t session,
+                            uint8_t** cert_buffer_p,
+                            uint32_t* size_p) {
+    uint8_t* data = NULL;
+    uint32_t data_len = 0;
+    long rc =
+            keymaster_send_command(session, KM_GET_UDS_CERTS, &data, &data_len);
+    if (rc != NO_ERROR) {
+        return rc;
+    }
+
+    // The first four bytes (native endian) after the (consumed) command code
+    // indicate the error code for the command (0 for success).
+    if (data_len < sizeof(uint32_t)) {
+        TLOGE("%s: UDS certs return code wrong length: %zu, expected >= %zu\n",
+              __func__, (size_t)data_len, sizeof(uint32_t));
+        rc = ERR_BAD_LEN;
+        goto exit;
+    }
+    uint32_t errcode = *(uint32_t*)data;
+    if (errcode != 0) {
+        TLOGE("%s: UDS certs retrieval failed: %u\n", __func__, errcode);
+        rc = ERR_FAULT;
+        goto exit;
+    }
+
+    // Remainder of message is the UDS certs, starting with a 32-bit (native
+    // endian) length.
+    uint32_t remaining_len = data_len - sizeof(uint32_t);
+    uint8_t* rest = data + sizeof(uint32_t);
+    if (remaining_len < sizeof(uint32_t)) {
+        TLOGE("%s: UDS cert data wrong length: %zu, expected >= %zu\n",
+              __func__, (size_t)remaining_len, sizeof(uint32_t));
+        rc = ERR_BAD_LEN;
+        goto exit;
+    }
+
+    *size_p = *(uint32_t*)rest;
+    remaining_len -= sizeof(uint32_t);
+    rest += sizeof(uint32_t);
+    if (*size_p != remaining_len) {
+        TLOGE("%s: UDS cert data inconsistent length: claims %zu, %zu remaining\n",
+              __func__, (size_t)(*size_p), (size_t)remaining_len);
+        rc = ERR_BAD_LEN;
+        goto exit;
+    }
+
+    // Allocate space for just the UDS certs.
+    *cert_buffer_p = malloc(*size_p);
+    if (*cert_buffer_p == NULL) {
+        TLOGE("%s: out of memory (%zu)\n", __func__, (size_t)(*size_p));
+        rc = ERR_NO_MEMORY;
+        goto exit;
+    }
+    memcpy(*cert_buffer_p, rest, *size_p);
+
+exit:
+    // Always free the (prefixed) response buffer.
+    free(data);
+    return rc;
+}
+
 static int mint_hmac(uint8_t* key,
                      size_t key_size,
                      uint8_t* message,

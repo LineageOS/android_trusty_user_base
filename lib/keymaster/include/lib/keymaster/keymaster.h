@@ -91,4 +91,17 @@ int keymaster_validate_auth_token(keymaster_session_t session,
 int keymaster_get_device_info(keymaster_session_t session,
                               uint8_t** info_buffer_p,
                               uint32_t* size_p);
+
+/**
+ * keymaster_get_uds_certs() - Return UDS certificates.
+ * @session: An open keymaster_session_t.
+ * @cert_buffer_p: A buffer to be populated with the UDS certs.
+ *                 Ownership of this pointer is transferred to the caller and
+ *                 must be deallocated with a call to free().
+ * @size_p: Set to the allocated size of info_buffer_p.
+ * @return: NO_ERROR on success.
+ */
+int keymaster_get_uds_certs(keymaster_session_t session,
+                            uint8_t** cert_buffer_p,
+                            uint32_t* size_p);
 __END_CDECLS
