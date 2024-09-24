@@ -16,10 +16,16 @@
 
 #pragma once
 
+#include <interface/metrics/metrics.h>
 #include <lib/tipc/tipc_srv.h>
 #include <string.h>
 
 __BEGIN_CDECLS
+
+struct metrics_crash_msg {
+    struct metrics_req req;
+    struct metrics_report_crash_req crash_args;
+} __attribute__((__packed__));
 
 /**
  * struct srv_state - global state of the metrics TA

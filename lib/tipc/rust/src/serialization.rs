@@ -64,6 +64,15 @@ impl<'s> Serialize<'s> for u32 {
     }
 }
 
+impl<'s> Serialize<'s> for &'s [u8] {
+    fn serialize<'a: 's, S: Serializer<'s>>(
+        &'a self,
+        serializer: &mut S,
+    ) -> Result<S::Ok, S::Error> {
+        serializer.serialize_bytes(self)
+    }
+}
+
 /// A type that can deserialize itself from a sequence of bytes and handles.
 pub trait Deserialize: Sized {
     type Error: From<TipcError> + Debug;

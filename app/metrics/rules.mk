@@ -25,6 +25,7 @@ MODULE_SRCS := \
 	$(LOCAL_DIR)/main.cpp \
 
 MODULE_LIBRARY_DEPS += \
+	external/boringssl \
 	trusty/kernel/lib/shared/binder_discover \
 	trusty/user/base/lib/libc-trusty \
 	trusty/user/base/lib/libstdc++-trusty \
