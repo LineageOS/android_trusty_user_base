@@ -32,12 +32,13 @@
 #![feature(allocator_api)]
 #![feature(alloc_error_handler)]
 #![feature(alloc_layout_extra)]
+#![feature(cfg_version)]
 #![feature(core_intrinsics)]
 // min_specialization is only used to optimize CString::try_new(), so we can
 // remove it if needed
 #![feature(min_specialization)]
 #![feature(new_uninit)]
-#![feature(panic_info_message)]
+#![cfg_attr(not(version("1.81")), feature(panic_info_message))]
 #![feature(slice_internals)]
 #![feature(slice_ptr_get)]
 
