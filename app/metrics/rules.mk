@@ -31,6 +31,7 @@ MODULE_LIBRARY_DEPS += \
 	trusty/user/base/lib/libstdc++-trusty \
 	trusty/user/base/lib/metrics_atoms \
 	trusty/user/base/lib/tipc \
+	trusty/user/base/lib/unittest \
 	trusty/user/base/interface/metrics \
 
 include make/trusted_app.mk
