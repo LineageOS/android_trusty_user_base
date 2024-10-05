@@ -32,6 +32,7 @@
 //! # Trusty Rust Testing Framework
 
 use core::cell::RefCell;
+use libc::{clock_gettime, CLOCK_BOOTTIME};
 use log::{Log, Metadata, Record};
 use tipc::{
     ConnectResult, Handle, Manager, MessageResult, PortCfg, Serialize, Serializer, Service, Uuid,
@@ -57,6 +58,15 @@ use context::CONTEXT;
 
 extern "Rust" {
     static TEST_PORT: &'static str;
+}
+
+fn get_time_ns() -> u64 {
+    let mut ts = libc::timespec { tv_sec: 0, tv_nsec: 0 };
+
+    // Safety: Passing valid pointer to variable ts which lives past end of call
+    unsafe { clock_gettime(CLOCK_BOOTTIME, &mut ts) };
+
+    ts.tv_sec as u64 * 1_000_000_000u64 + ts.tv_nsec as u64
 }
 
 /// Initialize a test service for this crate.
@@ -178,6 +188,10 @@ static LOGGER: TrustyTestLogger = TrustyTestLogger::new();
 
 fn print_status(test: &TestDesc, msg: &str) {
     log::info!("[ {} ] {}", msg, test.name);
+}
+
+fn print_status_with_duration(test: &TestDesc, msg: &str, duration_ms: u64) {
+    log::info!("[ {} ] {} ({} ms)", msg, test.name, duration_ms);
 }
 
 struct TestService {
@@ -302,14 +316,18 @@ impl Service for TestService {
     ) -> tipc::Result<ConnectResult<Self::Connection>> {
         LOGGER.connect(handle)?;
 
+        log::info!("[==========] Running {} tests from 1 test suite.\n", self.tests.len());
+
         let mut passed_tests = 0;
         let mut failed_tests = 0;
         let mut skipped_tests = 0;
         let mut total_ran = 0;
+        let mut total_duration_ms = 0;
         for test in &self.tests {
             CONTEXT.reset();
             total_ran += 1;
             print_status(&test.desc, "RUN     ");
+            let start_time_ns = get_time_ns();
             match test.testfn {
                 StaticTestFn(f) => f(),
                 StaticBenchFn(f) => {
@@ -318,14 +336,16 @@ impl Service for TestService {
                 }
                 _ => panic!("non-static tests passed to test::test_main_static"),
             }
+            let duration_ms = (get_time_ns() - start_time_ns) / 1_000_000u64;
+            total_duration_ms += duration_ms;
             if CONTEXT.skipped() {
-                print_status(&test.desc, " SKIPPED");
+                print_status_with_duration(&test.desc, " SKIPPED", duration_ms);
                 skipped_tests += 1;
             } else if CONTEXT.all_ok() {
-                print_status(&test.desc, "      OK");
+                print_status_with_duration(&test.desc, "      OK", duration_ms);
                 passed_tests += 1;
             } else {
-                print_status(&test.desc, " FAILED ");
+                print_status_with_duration(&test.desc, " FAILED ", duration_ms);
                 failed_tests += 1;
             }
             if CONTEXT.hard_fail() {
@@ -333,7 +353,7 @@ impl Service for TestService {
             }
         }
 
-        log::info!("[==========] {} tests ran.", total_ran);
+        log::info!("[==========] {} tests ran ({} ms total).", total_ran, total_duration_ms);
         if passed_tests > 0 {
             log::info!("[  PASSED  ] {} tests.", passed_tests);
         }

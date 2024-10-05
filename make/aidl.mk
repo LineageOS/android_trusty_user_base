@@ -123,8 +123,8 @@ $(AIDL_ROOT_RS): $(AIDL_SRCS)
 
 MODULE_LIBRARY_DEPS += \
 	frameworks/native/libs/binder/trusty/rust \
-	external/rust/crates/async-trait \
-	external/rust/crates/lazy_static \
+	$(call FIND_CRATE,async-trait) \
+	$(call FIND_CRATE,lazy_static) \
 
 # The AIDL compiler marks an aidl_data variable as mutable and rustc complains
 MODULE_RUSTFLAGS += -Aunused-mut -Aunused-variables

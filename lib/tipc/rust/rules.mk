@@ -27,7 +27,7 @@ MODULE_INCLUDES += \
 	trusty/user/base/lib/tipc/test/include \
 
 MODULE_LIBRARY_EXPORTED_DEPS += \
-	external/rust/crates/arrayvec \
+	$(call FIND_CRATE,arrayvec) \
 	trusty/user/base/lib/libc-trusty \
 	$(call FIND_CRATE,log) \
 	trusty/user/base/lib/trusty-std \
