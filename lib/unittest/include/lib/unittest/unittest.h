@@ -21,14 +21,6 @@
 #include <stdbool.h>
 #include <trusty_ipc.h>
 
-/*
- * This function returns a time in nanoseconds based on hardware counters
- * it is expected to:
- *  - Be non-wrapping or have very long (years) roll-over period
- *  - Have a resolution below 100ns
- */
-uint64_t get_current_time_ns(void);
-
 #define PORT_TEST(suite_name, port_name_string)           \
     __BEGIN_CDECLS                                        \
     static bool run_##suite_name(struct unittest* test) { \
