@@ -46,6 +46,7 @@ ifneq ($(ASLR), false)
 	MODULE_COMPILEFLAGS += -fPIC
 	MODULE_RUSTFLAGS += -C relocation-model=pic
 else
+	MODULE_COMPILEFLAGS += -fno-PIC -fno-PIE
 	MODULE_RUSTFLAGS += -C relocation-model=static
 endif
 

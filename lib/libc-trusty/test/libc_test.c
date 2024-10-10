@@ -882,6 +882,20 @@ TEST_F(libc, UnsignedOverflowMacros) {
 
 #define TEST_BUF_SIZE 64
 
+TEST_F(libc, PrepareDmaInvalidArgs) {
+    uint8_t buf[TEST_BUF_SIZE] = {0};
+    struct dma_pmem dma;
+
+    /* Zero size is invalid */
+    int rc = prepare_dma(buf, 0, DMA_FLAG_TO_DEVICE, &dma);
+    EXPECT_EQ(ERR_INVALID_ARGS, rc);
+
+    /* No struct dma_pmem should not be passed with NO_PMEM */
+    rc = prepare_dma(buf, TEST_BUF_SIZE, DMA_FLAG_TO_DEVICE | DMA_FLAG_NO_PMEM,
+                     &dma);
+    EXPECT_EQ(ERR_INVALID_ARGS, rc);
+}
+
 TEST_F(libc, PrepareDmaFailsOnMultipleCalls) {
     uint8_t buf[TEST_BUF_SIZE] = {0};
     struct dma_pmem dma;

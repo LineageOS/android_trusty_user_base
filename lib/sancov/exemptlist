@@ -30,3 +30,8 @@ src:trusty/kernel/lib/unittest/*
 
 # NB: Be careful not to exclude trusty/user/base/lib/sancov/test/*. We need it
 # to be instrumented.
+
+# These fail to link with with clang 18+ with undefined symbol __sancov_gen_.*
+# Not sure why. Disable them for now.
+fun:*EventListener*
+fun:*GetNotDefaultOrNull*
