@@ -87,7 +87,7 @@ struct TIDL_PACKED_ATTR ResponseHeader {
 #if !defined(__QL_TIPC__)
 class TIDL_PACKED_ATTR ParcelFileDescriptor {
 public:
-    android::base::unique_fd handle;
+    TIDL_PACKED_ATTR android::base::unique_fd handle;
 
     // Handle methods
     static constexpr uint32_t num_handles = 1;

@@ -1207,8 +1207,8 @@ mod test {
     use super::{PortCfg, Service};
     use crate::handle::test::{first_free_handle_index, MAX_USER_HANDLES};
     use crate::{
-        ConnectResult, Deserialize, Handle, Manager, MessageResult, Result, Serialize, Serializer,
-        TipcError, UnbufferedService, Uuid,
+        ConnectResult, Deserialize, Handle, Manager, MessageResult, Result, TipcError,
+        UnbufferedService, Uuid,
     };
     use test::{expect, expect_eq};
     use trusty_std::alloc::FallibleVec;
@@ -1373,15 +1373,6 @@ mod test {
                 Some(TipcError::SystemError(Error::TimedOut)),
                 "non-zero timeout",
             );
-        }
-    }
-
-    impl<'s> Serialize<'s> for i32 {
-        fn serialize<'a: 's, S: Serializer<'s>>(
-            &'a self,
-            serializer: &mut S,
-        ) -> core::result::Result<S::Ok, S::Error> {
-            unsafe { serializer.serialize_as_bytes(self) }
         }
     }
 

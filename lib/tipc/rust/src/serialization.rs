@@ -1,6 +1,7 @@
 use crate::{Handle, TipcError};
 use core::fmt::Debug;
 use core::{mem, slice};
+use zerocopy::AsBytes;
 
 /// A helper provided by the transport handle for the message type to serialize
 /// into.
@@ -52,17 +53,21 @@ pub trait Serialize<'s> {
     ) -> Result<S::Ok, S::Error>;
 }
 
-impl<'s> Serialize<'s> for u32 {
-    fn serialize<'a: 's, S: Serializer<'s>>(
-        &'a self,
-        serializer: &mut S,
-    ) -> Result<S::Ok, S::Error> {
-        // SAFETY:
-        //  u32 is a trivial type with a
-        //  corresponding C representation
-        unsafe { serializer.serialize_as_bytes(self) }
-    }
+macro_rules! impl_numeric_serialize {
+    ($($t:ty),* $(,)?) => {$(
+        impl<'s> Serialize<'s> for $t {
+            fn serialize<'a: 's, S: Serializer<'s>>(
+                &'a self,
+                serializer: &mut S,
+            ) -> Result<S::Ok, S::Error> {
+                serializer.serialize_bytes(self.as_bytes())
+            }
+        }
+    )*}
 }
+
+// usize/isize are excluded as they have platform-dependent sizes.
+impl_numeric_serialize!(u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, f32, f64);
 
 impl<'s> Serialize<'s> for &'s [u8] {
     fn serialize<'a: 's, S: Serializer<'s>>(

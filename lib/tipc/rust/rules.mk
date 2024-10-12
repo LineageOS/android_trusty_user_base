@@ -26,6 +26,9 @@ MODULE_SDK_LIB_NAME := tipc-rust
 MODULE_INCLUDES += \
 	trusty/user/base/lib/tipc/test/include \
 
+MODULE_LIBRARY_DEPS += \
+	$(call FIND_CRATE,zerocopy) \
+
 MODULE_LIBRARY_EXPORTED_DEPS += \
 	$(call FIND_CRATE,arrayvec) \
 	trusty/user/base/lib/libc-trusty \
