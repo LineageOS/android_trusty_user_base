@@ -1,5 +1,19 @@
 {
     "uuid": "METRICS_UUID",
     "min_heap": 8192,
-    "min_stack": 8192
+    "min_stack": 8192,
+    "mgmt_flags": {
+        "restart_on_exit": true,
+        "deferred_start": true,
+        "non_critical_app" : true
+    },
+    "start_ports": [
+        {
+            "name": "com.android.trusty.metrics.consumer",
+            "flags": {
+                "allow_ta_connect": true,
+                "allow_ns_connect": true
+            }
+        }
+    ]
 }
