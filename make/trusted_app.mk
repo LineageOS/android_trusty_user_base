@@ -159,13 +159,13 @@ $(TRUSTY_APP_SYMS_ELF): $(TRUSTY_APP_RUST_MAIN_SRC) $(TRUSTY_APP_RUST_SRCDEPS) $
 	@$(MKDIR)
 	@$(call ECHO,$(TRUSTY_APP_LOG_NAME),compiling,$<)
 ifeq ($(call TOBOOL,$(MODULE_RUST_USE_CLIPPY)),true)
-	$(NOECHO) set -e ; \
+	+$(NOECHO) set -e ; \
 		TEMP_CLIPPY_DIR=$$(mktemp -d) ;\
 		mkdir -p $(dir $$TEMP_CLIPPY_DIR/$@) ;\
 		$(MODULE_RUST_ENV) $(CLIPPY_DRIVER) $(GLOBAL_RUSTFLAGS) $(ARCH_RUSTFLAGS) $(MODULE_RUSTFLAGS) $< -o $$TEMP_CLIPPY_DIR/$@ ;\
 		rm -rf $$TEMP_CLIPPY_DIR
 endif
-	$(NOECHO)$(MODULE_RUST_ENV) $(RUSTC) $(GLOBAL_RUSTFLAGS) $(ARCH_RUSTFLAGS) $(MODULE_RUSTFLAGS) $< --emit "dep-info=$@.d" -o $@
+	+$(NOECHO)$(MODULE_RUST_ENV) $(RUSTC) $(GLOBAL_RUSTFLAGS) $(ARCH_RUSTFLAGS) $(MODULE_RUSTFLAGS) $< --emit "dep-info=$@.d" -o $@
 	@$(call ECHO_DONE_SILENT,$(TRUSTY_APP_LOG_NAME),compiling,$<)
 
 -include $(TRUSTY_APP_SYMS_ELF).d

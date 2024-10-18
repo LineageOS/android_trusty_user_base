@@ -63,7 +63,7 @@ endif
 
 MODULE_AIDL_INCLUDES ?=
 AIDL_SRCS := $(call TOBUILDDIR,$(patsubst %.aidl,%.$(AIDL_EXT),$(MODULE_AIDLS)))
-AIDL_RUST_GLUE_TOOL := system/tools/aidl/build/aidl_rust_glue.py
+AIDL_RUST_GLUE_TOOL ?= system/tools/aidl/build/aidl_rust_glue.py
 MODULE_AIDL_INCLUDES += $(foreach dir,$(sort $(foreach src,$(MODULE_AIDLS),$(call GET_AIDL_PACKAGE_ROOT,$(src)))), -I $(patsubst %/,%,$(dir)))
 
 # TODO: support multiple, disparate packages; for AIDL interfaces with package paths,
@@ -146,5 +146,4 @@ AIDL_EXT :=
 AIDL_HEADER_DIR :=
 AIDL_SRCS :=
 AIDL_TOOL :=
-AIDL_RUST_GLUE_TOOL :=
 AIDL_ROOT_RS :=

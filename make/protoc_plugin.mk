@@ -25,7 +25,7 @@
 # MODULE_PROTO_PACKAGE: a path that matches the directory structure of
 #                       the PROTO package utilized in the module.
 
-PROTOC_TOOL := $(firstword $(wildcard out/host/linux-x86/bin/aprotoc prebuilts/libprotobuf/bin/protoc))
+PROTOC_TOOL ?= $(firstword $(wildcard out/host/linux-x86/bin/aprotoc prebuilts/libprotobuf/bin/protoc))
 
 ifeq ($(PROTOC_TOOL),)
 $(error No PROTOC_TOOL. Please build the aprotoc or checkout with trusty manifest)
