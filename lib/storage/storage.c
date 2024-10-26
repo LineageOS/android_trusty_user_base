@@ -258,6 +258,7 @@ ssize_t send_reqv(storage_session_t session,
 int storage_open_session(storage_session_t* session_p, const char* type) {
     long rc = connect(type, IPC_CONNECT_WAIT_FOR_PORT);
     if (rc < 0) {
+        *session_p = STORAGE_INVALID_SESSION;
         return rc;
     }
 
@@ -282,6 +283,8 @@ int storage_open_file(storage_session_t session,
                           {(void*)name, strlen(name)}};
     struct storage_file_open_resp rsp = {0};
     struct iovec rx[2] = {{&msg, sizeof(msg)}, {&rsp, sizeof(rsp)}};
+
+    *handle_p = make_file_handle(STORAGE_INVALID_SESSION, 0);
 
     ssize_t rc = send_reqv(session, tx, 3, rx, 2);
     rc = check_response(&msg, rc);
@@ -369,6 +372,7 @@ int storage_open_dir(storage_session_t session,
     struct storage_file_list_resp* resp;
 
     if (path && strlen(path)) {
+        *state = NULL;
         return ERR_NOT_FOUND; /* current server does not support directories */
     }
     *state = malloc(sizeof(**state));
@@ -599,6 +603,8 @@ int storage_get_file_size(file_handle_t fh, storage_off_t* size_p) {
     struct iovec tx[2] = {{&msg, sizeof(msg)}, {&req, sizeof(req)}};
     struct storage_file_get_size_resp rsp;
     struct iovec rx[2] = {{&msg, sizeof(msg)}, {&rsp, sizeof(rsp)}};
+
+    *size_p = 0;
 
     ssize_t rc = send_reqv(_to_session(fh), tx, 2, rx, 2);
     rc = check_response(&msg, rc);
