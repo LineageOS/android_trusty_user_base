@@ -789,7 +789,7 @@ impl<S: UnbufferedService> Dispatcher for SingleUnbufferedDispatcher<S> {
 /// ```
 #[macro_export]
 macro_rules! service_dispatcher {
-    (enum $name:ident $(<$elt: lifetime>)? {$($service:ident $(<$slt: lifetime>)? ),+ $(,)*}) => {
+    ($vis:vis enum $name:ident $(<$elt: lifetime>)? {$($service:ident $(<$slt: lifetime>)? ),+ $(,)*}) => {
         /// Dispatcher that routes incoming messages to the correct server based on what
         /// port the message was sent to.
         ///
@@ -797,20 +797,20 @@ macro_rules! service_dispatcher {
         /// message formats for the same [`Manager`]. By using this dispatcher,
         /// different servers can be bound to different ports using the same event loop
         /// in the manager.
-        struct $name<$($elt,)? const PORT_COUNT: usize> {
+        $vis struct $name<$($elt,)? const PORT_COUNT: usize> {
             ports: arrayvec::ArrayVec::<$crate::PortCfg, PORT_COUNT>,
             services: arrayvec::ArrayVec::<ServiceKind$(<$elt>)?, PORT_COUNT>,
         }
 
         impl<$($elt,)? const PORT_COUNT: usize> $name<$($elt,)? PORT_COUNT> {
-            fn new() -> $crate::Result<Self> {
+            pub fn new() -> $crate::Result<Self> {
                 Ok(Self {
                     ports: arrayvec::ArrayVec::<_, PORT_COUNT>::new(),
                     services: arrayvec::ArrayVec::<_, PORT_COUNT>::new(),
                 })
             }
 
-            fn add_service<T>(&mut self, service: alloc::rc::Rc<T>, port: $crate::PortCfg) -> $crate::Result<()>
+            pub fn add_service<T>(&mut self, service: alloc::rc::Rc<T>, port: $crate::PortCfg) -> $crate::Result<()>
             where ServiceKind$(<$elt>)? : From<alloc::rc::Rc<T>> {
                 if self.ports.is_full() || self.services.is_full() {
                     return Err($crate::TipcError::OutOfBounds);
@@ -824,7 +824,7 @@ macro_rules! service_dispatcher {
             }
         }
 
-        enum ServiceKind$(<$elt>)? {
+        $vis enum ServiceKind$(<$elt>)? {
             $($service(alloc::rc::Rc<$service$(<$slt>)?>)),+
         }
 
@@ -836,7 +836,7 @@ macro_rules! service_dispatcher {
             }
         )+
 
-        enum ConnectionKind$(<$elt>)?  {
+        $vis enum ConnectionKind$(<$elt>)?  {
             $($service(<$service$(<$slt>)? as $crate::UnbufferedService>::Connection)),+
         }
 
@@ -1530,7 +1530,7 @@ mod multiservice_with_lifetimes_tests {
 
     const SRV_PATH_BASE: &str = "com.android.ipc-unittest-lifetimes";
 
-    struct Service1<'a> {
+    pub(crate) struct Service1<'a> {
         phantom: PhantomData<&'a u32>,
     }
 
@@ -1558,7 +1558,7 @@ mod multiservice_with_lifetimes_tests {
         }
     }
 
-    struct Service2<'a> {
+    pub(crate) struct Service2<'a> {
         phantom: PhantomData<&'a u32>,
     }
 
@@ -1587,7 +1587,7 @@ mod multiservice_with_lifetimes_tests {
     }
 
     service_dispatcher! {
-        enum TestServiceLifetimeDispatcher<'a> {
+        pub(crate) enum TestServiceLifetimeDispatcher<'a> {
             Service1<'a>,
             Service2<'a>,
         }
