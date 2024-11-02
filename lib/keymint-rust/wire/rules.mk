@@ -24,6 +24,7 @@ MODULE_CRATE_NAME := kmr_wire
 MODULE_RUSTFLAGS += \
 	--cfg 'feature="hal_v2"' \
 	--cfg 'feature="hal_v3"' \
+	--cfg 'feature="hal_v4"' \
 
 MODULE_LIBRARY_EXPORTED_DEPS += \
 	$(call FIND_CRATE,enumn) \

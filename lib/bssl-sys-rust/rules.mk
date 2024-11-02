@@ -56,7 +56,12 @@ MODULE_BINDGEN_FLAGS += \
 	--blocklist-function="OPENSSL_vasprintf" \
 
 # bssl-sys expects the bindgen output to be placed in BINDGEN_RS_FILE.
+# TODO: Remove MODULE_BINDGEN_OUTPUT_ENV_VAR once
+# https://boringssl-review.googlesource.com/c/boringssl/+/72487 rolls
+# to AOSP.
 MODULE_BINDGEN_OUTPUT_ENV_VAR := BINDGEN_RS_FILE
+
+MODULE_BINDGEN_OUTPUT_FILE_NAME := bindgen
 
 MODULE_INCLUDES += \
 	$(BSSL_SRC_DIR)/include \
