@@ -23,8 +23,8 @@
 #include <string.h>
 #include <trusty/uuid.h>
 
-/* Assume we have no more than 64 TAs running at the same time */
-#define MAX_NUM_APPS 64
+/* Assume we have no more than 128 TAs running at the same time */
+#define MAX_NUM_APPS 128
 
 /**
  * struct srv_state - global state of the coverage server
