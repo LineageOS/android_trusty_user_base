@@ -50,7 +50,7 @@ struct dice_root_state {
     /* Unique Device Secret - A hardware backed secret */
     uint8_t UDS[DICE_CDI_SIZE];
     /* Public key of the key pair derived from a seed derived from UDS. */
-    uint8_t UDS_pub_key[DICE_PUBLIC_KEY_SIZE];
+    uint8_t UDS_pub_key[DICE_PUBLIC_KEY_BUFFER_SIZE];
     /* Secret (of size: DICE_HIDDEN_SIZE) with factory reset life time. */
     uint8_t FRS[DICE_HIDDEN_SIZE];
     /**
@@ -87,11 +87,11 @@ static int dice_result_to_err(DiceResult result) {
 
 struct swbcc_session {
     uint8_t key_seed[DICE_PRIVATE_KEY_SEED_SIZE];
-    uint8_t pub_key[DICE_PUBLIC_KEY_SIZE];
+    uint8_t pub_key[DICE_PUBLIC_KEY_BUFFER_SIZE];
     uint8_t priv_key[DICE_PRIVATE_KEY_SIZE];
 
     uint8_t test_key_seed[DICE_PRIVATE_KEY_SEED_SIZE];
-    uint8_t test_pub_key[DICE_PUBLIC_KEY_SIZE];
+    uint8_t test_pub_key[DICE_PUBLIC_KEY_BUFFER_SIZE];
     uint8_t test_priv_key[DICE_PRIVATE_KEY_SIZE];
 
     struct uuid client_uuid;
@@ -192,9 +192,9 @@ int swbcc_glob_init(const uint8_t FRS[DICE_HIDDEN_SIZE],
      * every DICE operation which uses it.
      */
     uint8_t UDS_private_key[DICE_PRIVATE_KEY_SIZE];
-    result = DiceKeypairFromSeed(NULL, private_key_seed,
-                                 srv_state.dice_root.UDS_pub_key,
-                                 UDS_private_key);
+    result = DiceKeypairFromSeed(
+            NULL, kDicePrincipalAuthority, private_key_seed,
+            srv_state.dice_root.UDS_pub_key, UDS_private_key);
 
     rc = dice_result_to_err(result);
     if (rc != NO_ERROR) {
@@ -257,8 +257,9 @@ int swbcc_init(swbcc_session_t* s, const struct uuid* client) {
         goto err;
     }
 
-    result = DiceKeypairFromSeed(srv_state.dice_ctx, session->key_seed,
-                                 session->pub_key, session->priv_key);
+    result = DiceKeypairFromSeed(srv_state.dice_ctx, kDicePrincipalSubject,
+                                 session->key_seed, session->pub_key,
+                                 session->priv_key);
     rc = dice_result_to_err(result);
     if (rc != NO_ERROR) {
         TLOGE("Failed to generate keypair: %d\n", rc);
@@ -272,8 +273,9 @@ int swbcc_init(swbcc_session_t* s, const struct uuid* client) {
         goto err;
     }
 
-    result = DiceKeypairFromSeed(srv_state.dice_ctx, session->test_key_seed,
-                                 session->test_pub_key, session->test_priv_key);
+    result = DiceKeypairFromSeed(srv_state.dice_ctx, kDicePrincipalSubject,
+                                 session->test_key_seed, session->test_pub_key,
+                                 session->test_priv_key);
     rc = dice_result_to_err(result);
     if (rc != NO_ERROR) {
         TLOGE("Failed to generate test keypair: %d\n", rc);
@@ -445,8 +447,9 @@ int swbcc_get_bcc(swbcc_session_t s,
     *bcc_size = bcc_used;
 
     /* Encode first entry in the array which is a COSE_Key */
-    result = DiceCoseEncodePublicKey(srv_state.dice_ctx, pub_key, bcc_buf_size,
-                                     bcc, &bcc_used);
+    result =
+            DiceCoseEncodePublicKey(srv_state.dice_ctx, kDicePrincipalAuthority,
+                                    pub_key, bcc_buf_size, bcc, &bcc_used);
     rc = dice_result_to_err(result);
     if (rc != NO_ERROR) {
         TLOGE("Failed to encode public key: %d\n", rc);
