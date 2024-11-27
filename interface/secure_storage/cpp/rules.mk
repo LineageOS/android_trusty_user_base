@@ -16,11 +16,12 @@
 LOCAL_DIR := $(GET_LOCAL_DIR)
 
 AIDL_DIR := \
-	hardware/interfaces/staging/security/see/storage/aidl
+	hardware/interfaces/security/see/storage/aidl/aidl_api/android.hardware.security.see.storage/current
 
 MODULE := $(LOCAL_DIR)
 
-MODULE_AIDL_FLAGS :=
+MODULE_AIDL_FLAGS := \
+	--stability=vintf \
 
 MODULE_AIDL_LANGUAGE := cpp
 
