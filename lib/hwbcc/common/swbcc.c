@@ -88,11 +88,11 @@ static int dice_result_to_err(DiceResult result) {
 struct swbcc_session {
     uint8_t key_seed[DICE_PRIVATE_KEY_SEED_SIZE];
     uint8_t pub_key[DICE_PUBLIC_KEY_BUFFER_SIZE];
-    uint8_t priv_key[DICE_PRIVATE_KEY_SIZE];
+    uint8_t priv_key[DICE_PRIVATE_KEY_BUFFER_SIZE];
 
     uint8_t test_key_seed[DICE_PRIVATE_KEY_SEED_SIZE];
     uint8_t test_pub_key[DICE_PUBLIC_KEY_BUFFER_SIZE];
-    uint8_t test_priv_key[DICE_PRIVATE_KEY_SIZE];
+    uint8_t test_priv_key[DICE_PRIVATE_KEY_BUFFER_SIZE];
 
     struct uuid client_uuid;
 };
@@ -191,7 +191,7 @@ int swbcc_glob_init(const uint8_t FRS[DICE_HIDDEN_SIZE],
      * the certificate chain for the child nodes. UDS private key is derived in
      * every DICE operation which uses it.
      */
-    uint8_t UDS_private_key[DICE_PRIVATE_KEY_SIZE];
+    uint8_t UDS_private_key[DICE_PRIVATE_KEY_BUFFER_SIZE];
     result = DiceKeypairFromSeed(
             NULL, kDicePrincipalAuthority, private_key_seed,
             srv_state.dice_root.UDS_pub_key, UDS_private_key);
