@@ -126,6 +126,31 @@ impl PortCfg {
     pub fn allowed_uuids(self, uuids: &'static [Uuid]) -> Self {
         Self { uuid_allow_list: Some(uuids), ..self }
     }
+
+    /// Get path
+    pub fn get_path(&self) -> &CString {
+        &self.path
+    }
+
+    /// Get message max size
+    pub fn get_msg_max_size(&self) -> u32 {
+        self.msg_max_size
+    }
+
+    /// Get message queue length
+    pub fn get_msg_queue_len(&self) -> u32 {
+        self.msg_queue_len
+    }
+
+    /// Get flags
+    pub fn get_flags(&self) -> u32 {
+        self.flags
+    }
+
+    /// Get allowed UUIDs
+    pub fn get_uuid_allow_list(&self) -> Option<&'static [Uuid]> {
+        self.uuid_allow_list
+    }
 }
 
 impl TryClone for PortCfg {
@@ -362,6 +387,12 @@ impl fmt::Debug for Uuid {
             }
         }
         Ok(())
+    }
+}
+
+impl From<trusty_sys::uuid> for Uuid {
+    fn from(uuid: trusty_sys::uuid) -> Self {
+        Self(uuid)
     }
 }
 

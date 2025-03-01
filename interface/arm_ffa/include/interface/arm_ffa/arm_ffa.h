@@ -29,7 +29,7 @@
 #endif
 
 #define FFA_CURRENT_VERSION_MAJOR (1U)
-#define FFA_CURRENT_VERSION_MINOR (1U)
+#define FFA_CURRENT_VERSION_MINOR (2U)
 
 #define FFA_VERSION_TO_MAJOR(version) ((version) >> 16)
 #define FFA_VERSION_TO_MINOR(version) ((version) & (0xffff))
@@ -573,6 +573,20 @@ enum ffa_error {
 #define SMC_FC_FFA_MSG_WAIT SMC_FASTCALL_NR_SHARED_MEMORY(0x6B)
 
 /**
+ * SMC_FC_FFA_YIELD - SMC opcode to yield execution back to the component that
+ *                    scheduled it.
+ *
+ * Register arguments:
+ *
+ * * w1:     Endpoint ID in [31:16], vCPU in [15:0].
+ * * w2:     Lower 32-bits of timeout interval in nanoseconds after which vCPU
+ *           in w1 must run.
+ * * w3:     Upper 32-bits of timeout interval in nanoseconds after which vCPU
+ *           in w1 must run.
+ */
+#define SMC_FC_FFA_YIELD SMC_FASTCALL_NR_SHARED_MEMORY(0x6C)
+
+/**
  * SMC_FC_FFA_MSG_RUN - SMC opcode to allocate cycles to an endpoint
  *
  * Register arguments:
@@ -644,6 +658,32 @@ enum ffa_error {
  * * x3-x7:  Implementation defined.
  */
 #define SMC_FC64_FFA_MSG_SEND_DIRECT_RESP SMC_FASTCALL64_NR_SHARED_MEMORY(0x70)
+
+/**
+ * SMC_FC64_FFA_MSG_SEND_DIRECT_REQ2 - 64 bit SMC opcode to send direct message
+ *                                     as a request
+ *
+ * Register arguments:
+ *
+ * * w1:     Sender ID in bit[31:16], receiver ID in [15:0]
+ * * x2:     Bytes[0..7] of UUID.
+ * * x3:     Bytes[8..15] of UUID.
+ * * x4-x17:  Implementation defined.
+ */
+#define SMC_FC64_FFA_MSG_SEND_DIRECT_REQ2 SMC_FASTCALL64_NR_SHARED_MEMORY(0x8D)
+
+/**
+ * SMC_FC64_FFA_MSG_SEND_DIRECT_RESP2 - 64 bit SMC opcode to send direct message
+ *                                     as a response
+ *
+ * Register arguments:
+ *
+ * * w1:     Sender ID in bit[31:16], receiver ID in [15:0]
+ * * w2:     Should be zero.
+ * * w3:     Should be zero.
+ * * x4-x17:  Implementation defined.
+ */
+#define SMC_FC64_FFA_MSG_SEND_DIRECT_RESP2 SMC_FASTCALL64_NR_SHARED_MEMORY(0x8E)
 
 /**
  * SMC_FC_FFA_MEM_DONATE - 32 bit SMC opcode to donate memory

@@ -75,12 +75,20 @@ static const struct uuid widevine_uuid = {
         {0xa9, 0x1d, 0x75, 0xf1, 0x98, 0x9c, 0x57, 0xef},
 };
 
+/* UUID: {19c7289c-5004-4a30-b85a-2a22a76e6327} */
+static const struct uuid widevine_vm_uuid = {
+        0x19c7289c,
+        0x5004,
+        0x4a30,
+        {0xb8, 0x5a, 0x2a, 0x22, 0xa7, 0x6e, 0x63, 0x27},
+};
+
 /* ZERO UUID to allow connections from non-secure world */
 static const struct uuid zero_uuid = UUID_INITIAL_VALUE(zero_uuid);
 
 static const struct uuid* allowed_uuids[] = {
-        &km_uuid,       &hwbcc_test_uuid, &hwbcc_rust_test_uuid,
-        &widevine_uuid, &zero_uuid,
+        &km_uuid,       &hwbcc_test_uuid,  &hwbcc_rust_test_uuid,
+        &widevine_uuid, &widevine_vm_uuid, &zero_uuid,
 };
 
 static struct tipc_port_acl acl = {
