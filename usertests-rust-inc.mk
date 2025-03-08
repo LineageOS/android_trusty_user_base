@@ -13,10 +13,18 @@
 # limitations under the License.
 #
 
+TRUSTY_BUILTIN_USER_TASKS += \
+	trusty/user/base/lib/service_manager/tests/fake_accessor \
+	trusty/user/base/lib/service_manager/tests/test_service \
+
+# TRUSTY_BUILTIN_USER_TASKS += \
+#  	trusty/user/base/lib/service_manager/tests/test_service \
+
 TRUSTY_RUST_USER_TESTS += \
-	trusty/user/base/lib/tipc/rust \
+	packages/modules/Virtualization/libs/dice/open_dice/tests \
 	trusty/user/base/lib/hwkey/rust \
 	trusty/user/base/lib/hwbcc/rust \
 	trusty/user/base/lib/hwwsk/rust \
 	trusty/user/base/lib/storage/rust \
-	packages/modules/Virtualization/libs/dice/open_dice/tests \
+	trusty/user/base/lib/service_manager/tests \
+	trusty/user/base/lib/tipc/rust \

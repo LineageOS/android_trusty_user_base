@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use alloc::collections::TryReserveError;
 use core::num::TryFromIntError;
 use tipc::TipcError;
 use trusty_std::alloc::AllocError;
@@ -51,6 +52,12 @@ impl From<TryFromIntError> for HwBccError {
 
 impl From<AllocError> for HwBccError {
     fn from(_err: AllocError) -> Self {
+        HwBccError::AllocError
+    }
+}
+
+impl From<TryReserveError> for HwBccError {
+    fn from(_err: TryReserveError) -> Self {
         HwBccError::AllocError
     }
 }

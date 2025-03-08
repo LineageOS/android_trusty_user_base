@@ -98,12 +98,15 @@ enum {
 };
 
 /*
- *  Values for cmd parameter of handle_set_ctrl call
+ *  Values for cmd parameter of handle_set_ctrl call.
+ *  These should be kept in sync with #defines in handle_set.h
  */
 enum {
     HSET_ADD = 0x0, /* adds new handle to handle set */
     HSET_DEL = 0x1, /* deletes handle from handle set */
     HSET_MOD = 0x2, /* modifies handle attributes in handle set */
+    HSET_DEL_GET_COOKIE =
+            0x3, /* deletes a handle from handle set and returns its cookie */
 };
 
 /*

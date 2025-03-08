@@ -885,3 +885,95 @@ enum ffa_error {
  *           %FFA_ERROR_INVALID_PARAMETERS Invalid entry point specified
  */
 #define SMC_FC64_FFA_SECONDARY_EP_REGISTER SMC_FASTCALL64_NR_SHARED_MEMORY(0x87)
+
+/* Framework messages */
+/**
+ * FFA_FRAMEWORK_MSG_FLAG - Direct message flag for framework messages.
+ *
+ * Framework messages have &FFA_FRAMEWORK_MSG_FLAG set in w2.
+ */
+#define FFA_FRAMEWORK_MSG_FLAG (1U << 31)
+
+/**
+ * FFA_FRAMEWORK_MSG_MASK - Mask for the framework message type.
+ *
+ * Mask the value in w2 against &FFA_FRAMEWORK_MSG_MASK
+ * to get the framework message type.
+ */
+#define FFA_FRAMEWORK_MSG_MASK (0xffU)
+
+/**
+ * FFA_FRAMEWORK_MSG_VM_CREATED_REQ - VM creation request.
+ *
+ * Register arguments:
+ *
+ * * w0:     &SMC_FC_FFA_MSG_SEND_DIRECT_REQ
+ * * w1:     Hypervisor ID in bit[31:16], SP ID in [15:0]
+ * * w2:     Message Flags.
+ *           bit[31]   : 1 for framework message.
+ *           bit[30:8] : Reserved. Must be 0.
+ *           bit[7:0]  : &FFA_FRAMEWORK_MSG_VM_CREATED_REQ
+ * * w3/w4:  Handle to identify a memory region.
+ * * w5:     ID of VM in [15:0], remaining SBZ.
+ * * w6-7:   Should be zero.
+ */
+#define FFA_FRAMEWORK_MSG_VM_CREATED_REQ 4
+
+/**
+ * FFA_FRAMEWORK_MSG_VM_CREATED_RESP - VM creation response.
+ *
+ * Register arguments:
+ *
+ * * w0:     &SMC_FC_FFA_MSG_SEND_DIRECT_RESP
+ * * w1:     SP ID in bit[31:16], hypervisor ID in [15:0]
+ * * w2:     Message Flags.
+ *           bit[31]   : 1 for framework message.
+ *           bit[30:8] : Reserved. Must be 0.
+ *           bit[7:0]  : &FFA_FRAMEWORK_MSG_VM_CREATED_RESP
+ * * w3:     SP return status code:
+ *           %0 in case of success
+ *           %FFA_ERROR_INVALID_PARAMETERS
+ *           %FFA_ERROR_INTERRUPTED
+ *           %FFA_ERROR_DENIED
+ *           %FFA_ERROR_RETRY
+ * * w4-7:   Should be zero.
+ */
+#define FFA_FRAMEWORK_MSG_VM_CREATED_RESP 5
+
+/**
+ * FFA_FRAMEWORK_MSG_VM_DESTROYED_REQ - VM destruction request.
+ *
+ * Register arguments:
+ *
+ * * w0:     &SMC_FC_FFA_MSG_SEND_DIRECT_REQ
+ * * w1:     Hypervisor ID in bit[31:16], SP ID in [15:0]
+ * * w2:     Message Flags.
+ *           bit[31]   : 1 for framework message.
+ *           bit[30:8] : Reserved. Must be 0.
+ *           bit[7:0]  : &FFA_FRAMEWORK_MSG_VM_DESTROYED_REQ
+ * * w3/w4:  Handle to identify a memory region.
+ * * w5:     ID of VM in [15:0], remaining SBZ.
+ * * w6-7:   Should be zero.
+ */
+#define FFA_FRAMEWORK_MSG_VM_DESTROYED_REQ 6
+
+/**
+ * FFA_FRAMEWORK_MSG_VM_DESTROYED_RESP - VM destruction response.
+ *
+ * Register arguments:
+ *
+ * * w0:     &SMC_FC_FFA_MSG_SEND_DIRECT_RESP
+ * * w1:     SP ID in bit[31:16], hypervisor ID in [15:0]
+ * * w2:     Message Flags.
+ *           bit[31]   : 1 for framework message.
+ *           bit[30:8] : Reserved. Must be 0.
+ *           bit[7:0]  : &FFA_FRAMEWORK_MSG_VM_DESTROYED_RESP
+ * * w3:     SP return status code:
+ *           %0 in case of success
+ *           %FFA_ERROR_INVALID_PARAMETERS
+ *           %FFA_ERROR_INTERRUPTED
+ *           %FFA_ERROR_DENIED
+ *           %FFA_ERROR_RETRY
+ * * w4-7:   Should be zero.
+ */
+#define FFA_FRAMEWORK_MSG_VM_DESTROYED_RESP 7

@@ -1,0 +1,6 @@
+{
+    "app_name": "service_manager_integration_tests",
+    "uuid": "1a55040b-e35a-4326-88f5-b95601c2d4a0",
+    "min_heap": 16384,
+    "min_stack": 16384
+}

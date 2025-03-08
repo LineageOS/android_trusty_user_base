@@ -1,0 +1,6 @@
+{
+    "app_name": "fake_accessor",
+    "uuid": "18121b24-48a5-4f86-9058-066dbb20ed1f",
+    "min_heap": 8192,
+    "min_stack": 8192
+}

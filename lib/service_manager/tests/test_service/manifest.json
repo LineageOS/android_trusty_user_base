@@ -1,0 +1,6 @@
+{
+    "app_name": "service_manager_test_service",
+    "uuid": "16ba623e-be98-43c5-955a-c24166198289",
+    "min_heap": 8192,
+    "min_stack": 8192
+}

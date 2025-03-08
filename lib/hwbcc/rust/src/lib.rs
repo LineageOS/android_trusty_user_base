@@ -26,6 +26,8 @@
 
 #[cfg(test)]
 mod test;
+#[cfg(test)]
+mod test_serializer;
 
 mod err;
 pub mod srv;
@@ -49,6 +51,7 @@ use tipc::Serializer;
 use tipc::{Deserialize, Handle, Serialize};
 use trusty_std::alloc::{TryAllocFrom, Vec};
 use trusty_sys::{c_long, Error};
+use zerocopy::IntoBytes;
 
 // Constant defined in trusty/user/base/interface/hwbcc/include/interface/hwbcc
 pub const HWBCC_MAX_RESP_PAYLOAD_LENGTH: usize = HWBCC_MAX_RESP_PAYLOAD_SIZE as usize;
@@ -168,13 +171,64 @@ impl<'s> Serialize<'s> for SignDataMsg<'s> {
 }
 
 /// Response type for all hwbcc services.
+#[derive(Debug, PartialEq)]
 struct HwBccResponse {
     /// Status of command result.
     status: i32,
     /// Sent command, acknowledged by service if successful.
     cmd: u32,
+    /// The payload size in bytes. We store this separately because
+    /// to serialize a response we need a size guaranteed to live as
+    /// long as the input serializer and calling payload.len() won't
+    /// satisfy that constraint. There are no current use cases where
+    /// payload is mutable. If they arise, this field needs to be kept
+    /// in sync with the length of the payload.
+    payload_size: u32,
     /// Response data.
     payload: Vec<u8>,
+}
+
+impl HwBccResponse {
+    fn try_new_with_payload(
+        status: Error,
+        cmd: BccCmd,
+        payload: Vec<u8>,
+    ) -> Result<Self, HwBccError> {
+        if payload.len() > HWBCC_MAX_RESP_PAYLOAD_LENGTH {
+            return Err(HwBccError::BadLen);
+        }
+
+        Ok(HwBccResponse {
+            status: status as i32,
+            cmd: hwbcc_cmd_HWBCC_CMD_RESP_BIT | cmd as u32,
+            payload_size: payload.len().try_into()?,
+            payload: payload,
+        })
+    }
+
+    fn new_without_payload(status: Error, cmd: BccCmd) -> HwBccResponse {
+        HwBccResponse {
+            status: status as i32,
+            cmd: hwbcc_cmd_HWBCC_CMD_RESP_BIT | cmd as u32,
+            payload_size: 0,
+            payload: Vec::new(),
+        }
+    }
+}
+
+impl<'s> Serialize<'s> for HwBccResponse {
+    /// We serialize for compatibility
+    /// with hwbcc_resp_hdr as defined in hwbcc.h
+    fn serialize<'a: 's, S: Serializer<'s>>(
+        &'a self,
+        serializer: &mut S,
+    ) -> Result<S::Ok, S::Error> {
+        serializer.serialize_bytes(self.cmd.as_bytes())?;
+        serializer.serialize_bytes(self.status.as_bytes())?;
+        serializer.serialize_bytes(self.payload_size.as_bytes())?;
+
+        serializer.serialize_bytes(&self.payload)
+    }
 }
 
 impl Deserialize for HwBccResponse {
@@ -212,7 +266,12 @@ impl Deserialize for HwBccResponse {
             return Err(HwBccError::BadLen);
         }
 
-        Ok(Self { status: msg.status, cmd: msg.cmd, payload: response_payload })
+        Ok(Self {
+            status: msg.status,
+            cmd: msg.cmd,
+            payload_size: msg.payload_size,
+            payload: response_payload,
+        })
     }
 }
 
@@ -421,4 +480,30 @@ pub fn sign_data<'a>(
     let cose_sign1 = read_payload(response, cose_sign1)?;
 
     Ok(cose_sign1)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::test_serializer::TestSerializer;
+    use crate::{BccCmd, HwBccResponse};
+    use test::expect_eq;
+    use tipc::{Deserialize, Serialize};
+
+    #[test]
+    fn test_hwbcc_resp_serde() {
+        let test_payload = "i am an expected response payload".as_bytes();
+
+        let mut serializer = TestSerializer::default();
+        let hwbcc_resp =
+            HwBccResponse::try_new_with_payload(0.into(), BccCmd::GetBcc, test_payload.to_vec())
+                .expect("Failed to create HwBccResponse for test");
+        let _ =
+            hwbcc_resp.serialize(&mut serializer).expect("serialization of HwBccResponse failed");
+
+        let deserialized =
+            HwBccResponse::deserialize(&mut serializer.buffers, &mut serializer.handles)
+                .expect("deserialization failed");
+
+        expect_eq!(deserialized, hwbcc_resp);
+    }
 }

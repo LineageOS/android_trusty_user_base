@@ -17,13 +17,15 @@
 //! Service library for implementing hwbcc servers in Rust
 
 use crate::{
-    hwbcc_req_hdr, hwbcc_req_sign_data, BccCmd, BccMsg, HwBccError, HwBccMode, SigningAlgorithm,
-    HWBCC_MAX_AAD_SIZE, HWBCC_MAX_DATA_TO_SIGN_SIZE,
+    hwbcc_req_hdr, hwbcc_req_sign_data, BccCmd, BccMsg, HwBccError, HwBccMode, HwBccResponse,
+    SigningAlgorithm, HWBCC_MAX_AAD_SIZE, HWBCC_MAX_DATA_TO_SIGN_SIZE,
 };
+use alloc::rc::Rc;
 use core::mem::size_of;
 use num_traits::FromPrimitive;
 use tipc::{ConnectResult, Deserialize, Handle, MessageResult, PortCfg, Service, TipcError, Uuid};
 use trusty_std::alloc::TryAllocFrom;
+use trusty_sys::Error;
 use zerocopy::FromBytes;
 
 const HWBCC_MAX_MESSAGE_SIZE: usize = size_of::<hwbcc_req_hdr>()
@@ -145,7 +147,21 @@ fn deserialize_signing_msg<'a>(
     }
 }
 
-pub struct HwBccService(());
+pub struct HwBccService {
+    ops: Rc<dyn HwBccOps>,
+}
+
+impl HwBccService {
+    pub fn new(ops: Rc<dyn HwBccOps>) -> Self {
+        Self { ops }
+    }
+}
+
+pub trait HwBccOps {
+    fn init(&self, session: &RequestContext) -> Result<(), HwBccError>;
+    fn close(&self, session: &RequestContext);
+    fn get_bcc(&self, session: &RequestContext, mode: HwBccMode) -> Result<Vec<u8>, HwBccError>;
+}
 
 impl Service for HwBccService {
     type Connection = RequestContext;
@@ -157,53 +173,68 @@ impl Service for HwBccService {
         peer: &Uuid,
     ) -> Result<ConnectResult<<Self as Service>::Connection>, TipcError> {
         log::debug!("Accepted connection from uuid {:?}.", peer);
-        Ok(ConnectResult::Accept(RequestContext { peer: peer.clone() }))
+        let session = RequestContext { peer: peer.clone() };
+        match self.ops.init(&session) {
+            Ok(_) => Ok(ConnectResult::Accept(session)),
+            Err(e) => {
+                log::error!("Failed HwBccOps.init: {:?}", e);
+                Err(TipcError::UnknownError)
+            }
+        }
     }
 
     fn on_message(
         &self,
-        _connection: &<Self as Service>::Connection,
-        _handle: &Handle,
+        connection: &<Self as Service>::Connection,
+        handle: &Handle,
         message: RawBccMsgBuffer,
     ) -> Result<MessageResult, TipcError> {
-        // TODO: b/369146791 - Actually process the message and return a HwBccResponse
-        let _bcc_msg = message.to_req_msg();
+        let bcc_msg = match message.to_req_msg() {
+            Ok(m) => m,
+            Err(_) => {
+                log::error!("Failed to deserialize request");
+                return Err(TipcError::InvalidData);
+            }
+        };
+
+        let header = &bcc_msg.header;
+
+        let response = match header.cmd {
+            BccCmd::GetBcc => {
+                payload_to_response(BccCmd::GetBcc, self.ops.get_bcc(connection, header.test_mode))?
+            }
+            _ => HwBccResponse::new_without_payload(Error::NotSupported, header.cmd),
+        };
+
+        handle.send(&response)?;
+
         Ok(MessageResult::MaintainConnection)
+    }
+
+    fn on_disconnect(&self, connection: &Self::Connection) {
+        self.ops.close(connection);
+    }
+}
+
+fn payload_to_response(
+    cmd: BccCmd,
+    payload: Result<Vec<u8>, HwBccError>,
+) -> Result<HwBccResponse, TipcError> {
+    match payload {
+        Ok(p) => HwBccResponse::try_new_with_payload(Error::NoError, cmd, p).map_err(|e| {
+            log::error!("Failed to create HwBccResponse from payload. Error: {:?}", e);
+            TipcError::InvalidData
+        }),
+        Err(_) => Ok(HwBccResponse::new_without_payload(Error::Generic, cmd)),
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_serializer::TestSerializer;
     use test::expect_eq;
-    use tipc::{Serialize, Serializer};
-
-    #[derive(Debug)]
-    struct TestSerializationError;
-
-    /// A simple serializer that copies input data and allocates.
-    /// Not suitable for production.
-    #[derive(Default)]
-    struct TestSerializer {
-        pub buffers: Vec<u8>,
-        pub handles: Vec<Option<Handle>>,
-    }
-
-    impl<'a> Serializer<'a> for TestSerializer {
-        type Ok = ();
-        type Error = TestSerializationError;
-
-        fn serialize_bytes(&mut self, bytes: &'a [u8]) -> Result<(), TestSerializationError> {
-            self.buffers.extend_from_slice(bytes);
-            Ok(())
-        }
-
-        fn serialize_handle(&mut self, handle: &'a Handle) -> Result<(), TestSerializationError> {
-            let h = handle.try_clone().or(Err(TestSerializationError))?;
-            self.handles.push(Some(h));
-            Ok(())
-        }
-    }
+    use tipc::Serialize;
 
     #[test]
     fn deserialize_header_only() {
