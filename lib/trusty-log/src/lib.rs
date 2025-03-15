@@ -20,7 +20,7 @@
 
 use log::{Level, Log, Metadata, Record};
 use std::io::{stderr, Write};
-use std::sync::Once;
+use std::sync::OnceLock;
 
 /// Closure type that can be used by external callers to write a custom log formatter
 ///
@@ -118,8 +118,7 @@ fn default_log_function(record: &Record) -> String {
     format!("{} - {}\n", record.level(), record.args())
 }
 
-static mut LOGGER: Option<TrustyLogger> = None;
-static LOGGER_INIT: Once = Once::new();
+static LOGGER: OnceLock<TrustyLogger> = OnceLock::new();
 
 pub fn init() {
     init_with_config(TrustyLoggerConfig::default());
@@ -127,15 +126,7 @@ pub fn init() {
 
 pub fn init_with_config(config: TrustyLoggerConfig) {
     let log_level_filter = config.log_level.to_level_filter();
-    // SAFETY: We are using Once, so the mut global will only be written once even with multiple
-    // calls
-    let global_logger = unsafe {
-        LOGGER_INIT.call_once(|| {
-            LOGGER = Some(TrustyLogger::new(config));
-        });
-        // Logger is always Some(_) at this point, so we just unwrap it
-        LOGGER.as_ref().unwrap()
-    };
+    let global_logger = LOGGER.get_or_init(|| TrustyLogger::new(config));
     log::set_logger(global_logger).expect("Could not set global logger");
     log::set_max_level(log_level_filter);
 }

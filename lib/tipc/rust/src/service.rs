@@ -266,7 +266,7 @@ impl<D: Dispatcher> Channel<D> {
 pub struct Uuid(trusty_sys::uuid);
 
 impl Uuid {
-    const UUID_BYTE_LEN: usize = std::mem::size_of::<trusty_sys::uuid>();
+    pub const UUID_BYTE_LEN: usize = std::mem::size_of::<trusty_sys::uuid>();
     // UUID_STR_SIZE is a u32, conversion to usize is correct on our targeted architectures
     // Subtracting 1 from UUID_STR_SIZE because we don't need the null terminator on the RUST
     // implementation.
@@ -297,6 +297,10 @@ impl Uuid {
 
     pub unsafe fn as_ptr(&self) -> *const trusty_sys::uuid {
         &self.0
+    }
+
+    pub unsafe fn as_mut_ptr(&mut self) -> *mut trusty_sys::uuid {
+        &mut self.0
     }
 
     pub fn new_from_string(uuid_str: &str) -> Result<Self> {

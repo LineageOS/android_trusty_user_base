@@ -35,6 +35,7 @@ mod sys {
 
 mod err;
 mod handle;
+pub mod raw;
 mod serialization;
 mod service;
 

@@ -31,6 +31,7 @@ MODULE_RUSTFLAGS += \
 	--cfg 'feature="rustc-dep-of-std"' \
 	--cfg 'feature="nightly"' \
 	--cfg 'feature="rustc-internal-api"' \
+	--cfg 'feature="raw-entry"' \
 
 # Suppress warnings since the crate generates warnings when being built as a
 # dependency of std. We use `--cap-lints=allow` because that's done when
