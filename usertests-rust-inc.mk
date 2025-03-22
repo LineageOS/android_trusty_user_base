@@ -25,6 +25,7 @@ TRUSTY_RUST_USER_TESTS += \
 	trusty/user/base/lib/hwkey/rust \
 	trusty/user/base/lib/hwbcc/rust \
 	trusty/user/base/lib/hwwsk/rust \
+	trusty/user/base/lib/pvmdice \
 	trusty/user/base/lib/storage/rust \
 	trusty/user/base/lib/service_manager/tests \
 	trusty/user/base/lib/tipc/rust \

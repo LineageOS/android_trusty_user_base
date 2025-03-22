@@ -28,8 +28,10 @@ MODULE_LIBRARY_DEPS += \
 	external/boringssl \
 	$(LIBCPPBOR_DIR) \
 	external/open-dice \
+	packages/modules/Virtualization/libs/dice/open_dice \
 	trusty/user/base/interface/hwbcc \
 	trusty/user/base/lib/trusty-std \
+	$(call FIND_CRATE,coset) \
 	$(call FIND_CRATE,log) \
 	$(call FIND_CRATE,zerocopy) \
 	$(call FIND_CRATE,num-derive) \

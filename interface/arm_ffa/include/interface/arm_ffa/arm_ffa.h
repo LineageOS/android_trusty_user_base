@@ -370,6 +370,24 @@ typedef uint32_t ffa_features3_t;
 #define FFA_FEATURES3_MEM_RETRIEVE_REQ_REFCOUNT_MASK 0xffU
 
 /**
+ * Flags passed to FFA_PARTITION_INFO_GET
+ *
+ * * @FFA_PARTITION_INFO_GET_FLAG_RETURN_COUNT_ONLY
+ *     Return only the count of partitions corresponding to the given UUID.
+ */
+typedef uint32_t ffa_partition_info_get_flag32_t;
+#define FFA_PARTITION_INFO_GET_FLAG_RETURN_COUNT_ONLY (1U << 0)
+
+struct ffa_part_info_desc {
+    uint16_t partition_id;
+    uint16_t exec_ctx_or_proxy_id;
+    uint32_t properties;
+    uint64_t uuid_lo;
+    uint64_t uuid_hi;
+};
+STATIC_ASSERT(sizeof(struct ffa_part_info_desc) == 24);
+
+/**
  * enum ffa_error - FF-A error code
  * @FFA_ERROR_NOT_SUPPORTED:
  *         Operation is not supported by the current implementation.
@@ -389,6 +407,8 @@ typedef uint32_t ffa_features3_t;
  *         Operation aborted. Reason for abort is implementation specific.
  * @FFA_ERROR_NO_DATA:
  *         Requested information not available.
+ * @FFA_ERROR_NOT_READY:
+ *         Callee is not ready to handle the request.
  *
  */
 enum ffa_error {
@@ -401,6 +421,7 @@ enum ffa_error {
     FFA_ERROR_RETRY = -7,
     FFA_ERROR_ABORTED = -8,
     FFA_ERROR_NO_DATA = -9,
+    FFA_ERROR_NOT_READY = -10,
 };
 
 /**
@@ -557,6 +578,23 @@ enum ffa_error {
  * * w0:     &SMC_FC_FFA_SUCCESS
  */
 #define SMC_FC_FFA_RXTX_UNMAP SMC_FASTCALL_NR_SHARED_MEMORY(0x67)
+
+/**
+ * SMC_FC_FFA_PARTITION_INFO_GET - SMC opcode to get info about FF-A components
+ *
+ * Register arguments:
+ *
+ * w1:      Bytes[0..3] of UUID in little-endian.
+ * w2:      Bytes[4..7] of UUID in little-endian.
+ * w3:      Bytes[8..11] of UUID in little-endian.
+ * w4:      Bytes[12..15] of UUID in little-endian.
+ * w5:      bit[0]    : Information type flag. 1 for just the partition count
+ *                      with the UUID and 0 for the partition info descriptors.
+ *          bit[31:1] : SBZ
+ * w6-w7:   Reserved (SBZ).
+ *
+ */
+#define SMC_FC_FFA_PARTITION_INFO_GET SMC_FASTCALL_NR_SHARED_MEMORY(0x68)
 
 /**
  * SMC_FC_FFA_ID_GET - SMC opcode to get endpoint id of caller

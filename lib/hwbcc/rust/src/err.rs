@@ -16,6 +16,7 @@
 
 use alloc::collections::TryReserveError;
 use core::num::TryFromIntError;
+use diced_open_dice::DiceError;
 use tipc::TipcError;
 use trusty_std::alloc::AllocError;
 use trusty_sys::Error;
@@ -59,5 +60,20 @@ impl From<AllocError> for HwBccError {
 impl From<TryReserveError> for HwBccError {
     fn from(_err: TryReserveError) -> Self {
         HwBccError::AllocError
+    }
+}
+
+impl From<DiceError> for HwBccError {
+    fn from(dice_error: DiceError) -> Self {
+        match dice_error {
+            DiceError::InvalidInput => HwBccError::System(trusty_sys::Error::InvalidArgs),
+            DiceError::BufferTooSmall(_) => HwBccError::System(trusty_sys::Error::NotEnoughBuffer),
+            DiceError::PlatformError => HwBccError::System(trusty_sys::Error::Generic),
+            DiceError::UnsupportedKeyAlgorithm(_) => {
+                HwBccError::System(trusty_sys::Error::NotSupported)
+            }
+            DiceError::MemoryAllocationError => HwBccError::System(trusty_sys::Error::NoMemory),
+            DiceError::DiceChainNotFound => HwBccError::System(trusty_sys::Error::InvalidArgs),
+        }
     }
 }

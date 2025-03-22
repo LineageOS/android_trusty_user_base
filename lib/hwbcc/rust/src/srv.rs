@@ -161,6 +161,13 @@ pub trait HwBccOps {
     fn init(&self, session: &RequestContext) -> Result<(), HwBccError>;
     fn close(&self, session: &RequestContext);
     fn get_bcc(&self, session: &RequestContext, mode: HwBccMode) -> Result<Vec<u8>, HwBccError>;
+    fn sign_data<'a>(
+        &self,
+        session: &RequestContext,
+        data: &'a [u8],
+        aad: &'a [u8],
+        mode: HwBccMode,
+    ) -> Result<Vec<u8>, HwBccError>;
 }
 
 impl Service for HwBccService {
@@ -202,6 +209,24 @@ impl Service for HwBccService {
         let response = match header.cmd {
             BccCmd::GetBcc => {
                 payload_to_response(BccCmd::GetBcc, self.ops.get_bcc(connection, header.test_mode))?
+            }
+            BccCmd::SignData => {
+                if let Some(sign_req) = bcc_msg.sign_req {
+                    // Note that we ignore sign_req.algorithm because we always sign
+                    // with an algorithm derived from the leaf dice cert subject public key.
+                    // This makes external configuration impossible.
+                    payload_to_response(
+                        BccCmd::SignData,
+                        self.ops.sign_data(
+                            connection,
+                            sign_req.data,
+                            sign_req.aad,
+                            header.test_mode,
+                        ),
+                    )?
+                } else {
+                    HwBccResponse::new_without_payload(Error::InvalidArgs, BccCmd::SignData)
+                }
             }
             _ => HwBccResponse::new_without_payload(Error::NotSupported, header.cmd),
         };

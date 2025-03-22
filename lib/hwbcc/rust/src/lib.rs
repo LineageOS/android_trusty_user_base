@@ -45,6 +45,7 @@ pub use err::HwBccError;
 
 use core::ffi::CStr;
 use core::mem;
+use coset::iana;
 use num_derive::FromPrimitive;
 use sys::*;
 use tipc::Serializer;
@@ -296,6 +297,14 @@ pub enum HwBccMode {
 #[repr(i16)]
 pub enum SigningAlgorithm {
     ED25519 = hwbcc_algorithm_HWBCC_ALGORITHM_ED25519 as i16,
+}
+
+impl From<SigningAlgorithm> for iana::Algorithm {
+    fn from(alg: SigningAlgorithm) -> Self {
+        match alg {
+            SigningAlgorithm::ED25519 => iana::Algorithm::EdDSA,
+        }
+    }
 }
 
 fn recv_resp(session: &Handle, cmd: BccCmd, buf: &mut [u8]) -> Result<HwBccResponse, HwBccError> {

@@ -39,7 +39,7 @@
 
 #[cfg(test)]
 mod tests {
-    use service_manager::wait_for_interface;
+    use service_manager::*;
     use service_manager_test_service::binder;
     use service_manager_test_service::aidl::com::android::trusty::test_service::ISMTestService::ISMTestService;
     use android_hardware_security_see_storage::aidl::android::hardware::security::see::storage::ISecureStorage::ISecureStorage;
@@ -92,5 +92,33 @@ mod tests {
         let test_service: Result<binder::Strong<dyn ISecureStorage>, binder::StatusCode> =
             wait_for_interface("com.android.trusty.test_service.ISMTestService/accessor");
         expect_eq!(test_service, Err(binder::StatusCode::BAD_TYPE));
+    }
+
+    #[test]
+    fn test_service_name_to_trusty_port_under_max() {
+        expect_eq!(
+            service_name_to_trusty_port("foo.bar.ok.IShortService/default"),
+            Ok("foo.bar.ok.IShortService/default.bnd".to_owned())
+        )
+    }
+
+    #[test]
+    fn test_service_name_to_trusty_port_too_long_known_prefix() {
+        expect_eq!(
+            service_name_to_trusty_port(
+                "android.hardware.security.see.authmgr.IAuthMgrAuthorization/default"
+            ),
+            Ok("ahss.authmgr.IAuthMgrAuthorization/default.bnd".to_owned()),
+        )
+    }
+
+    #[test]
+    fn test_service_name_to_trusty_port_too_long_invalid() {
+        expect_eq!(
+            service_name_to_trusty_port(
+                "unknown.prefix.so.we.dont.handle.it.for.now.ILongServiceName/default"
+            ),
+            Err(binder::StatusCode::BAD_VALUE),
+        )
     }
 }

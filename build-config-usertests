@@ -41,6 +41,7 @@
     porttest("com.android.trusty.rust.service_manager_tests.test"),
     porttest("com.android.trusty.rust.storage.test"),
     porttest("com.android.trusty.rust.diced_open_dice_tests.test"),
+    porttest("com.android.trusty.rust.pvmdice.test"),
     compositetest(
         name="com.android.trusty.secure_fb.test-then-reboot",
         sequence=[

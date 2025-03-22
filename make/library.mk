@@ -300,6 +300,10 @@ define copy-headers-rule
 HEADERS := $$(shell cd "$(1)" 2>/dev/null && find -L . -type f)
 OUTPUT_HEADERS := $$(filter-out $$(MODULE_EXPORT_SDK_HEADERS),$$(addprefix $(TRUSTY_SDK_INCLUDE_DIR)/$(MODULE_SDK_HEADER_INSTALL_DIR)/,$$(HEADERS)))
 MODULE_EXPORT_SDK_HEADERS += $$(OUTPUT_HEADERS)
+# Create a fake dependency on configheader to trigger coping the file again
+# in case the copy source file path changes due to configuration change.
+# E.g. for headers copied from prebuilts/build-tools/sysroots/*
+$$(OUTPUT_HEADERS): $(CONFIGHEADER)
 $$(OUTPUT_HEADERS): $(TRUSTY_SDK_INCLUDE_DIR)/$(MODULE_SDK_HEADER_INSTALL_DIR)/% : $(1)/% $(MODULE_SRCDEPS)
 	@$$(MKDIR)
 	$$(NOECHO)cp -L $$< $$@

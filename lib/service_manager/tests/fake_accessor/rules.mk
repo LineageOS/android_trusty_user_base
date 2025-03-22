@@ -25,6 +25,7 @@ MODULE_LIBRARY_DEPS += \
 	frameworks/native/libs/binder/trusty/rust \
 	frameworks/native/libs/binder/trusty/rust/rpcbinder \
 	trusty/user/base/interface/binder_accessor \
+	trusty/user/base/lib/service_manager/client \
 	trusty/user/base/lib/tipc/rust \
 	trusty/user/base/lib/trusty-std \
 

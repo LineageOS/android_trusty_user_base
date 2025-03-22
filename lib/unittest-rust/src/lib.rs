@@ -48,12 +48,13 @@ pub use self::types::*;
 
 #[doc(hidden)]
 pub mod __internal_macro_utils {
-    pub use crate::asserts::*;
+    pub use crate::{asserts::*, display::*};
 }
 
 mod asserts;
 mod bench;
 mod context;
+mod display;
 mod macros;
 mod options;
 mod stats;
