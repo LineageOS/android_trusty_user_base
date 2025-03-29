@@ -19,8 +19,9 @@ use crate::sys::*;
 use crate::{Deserialize, Serialize, TipcError};
 use core::convert::TryInto;
 use core::ffi::CStr;
-use core::mem::MaybeUninit;
+use core::mem::{ManuallyDrop, MaybeUninit};
 use log::{error, warn};
+use std::os::fd::{IntoRawFd, RawFd};
 use trusty_sys::{c_int, c_long};
 
 /// An open IPC connection or shared memory reference.
@@ -372,6 +373,14 @@ impl Drop for Handle {
     }
 }
 
+impl IntoRawFd for Handle {
+    fn into_raw_fd(self) -> RawFd {
+        let h = ManuallyDrop::new(self);
+
+        h.as_raw_fd()
+    }
+}
+
 /// A serializer that borrows its input bytes and does not allocate.
 #[derive(Default)]
 struct BorrowingSerializer<'a> {
@@ -468,8 +477,9 @@ pub(crate) mod test {
     use super::Handle;
     use crate::sys;
     use crate::TipcError;
+    use std::os::fd::IntoRawFd;
     use std::sync::Once;
-    use test::expect_eq;
+    use test::{expect, expect_eq};
     use trusty_sys::Error;
 
     // Expected limits: should be in sync with kernel settings
@@ -552,5 +562,25 @@ pub(crate) mod test {
                 "wait on invalid handle"
             );
         }
+    }
+
+    #[test]
+    fn into_raw_fd() {
+        // Handle ignores errors from the close syscall on drop so scoping
+        // the handle ensures drop is called and we can test to ensure we
+        // still have a valid RawFd.
+        let raw_fd = {
+            let handle = Handle::connect(c"com.android.ipc-unittest.srv.ta_only");
+            expect!(handle.is_ok());
+
+            handle.unwrap().into_raw_fd()
+        };
+
+        // SAFETY: Calling the close syscall with the expected type. It is safe to
+        // call close with an invalid handle as it will just return an error.
+        let rc = unsafe { trusty_sys::close(raw_fd) };
+
+        // No error on close means we had a valid handle.
+        expect!(!Error::is_err(rc));
     }
 }

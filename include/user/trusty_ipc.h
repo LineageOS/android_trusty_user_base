@@ -107,6 +107,10 @@ enum {
     HSET_MOD = 0x2, /* modifies handle attributes in handle set */
     HSET_DEL_GET_COOKIE =
             0x3, /* deletes a handle from handle set and returns its cookie */
+    HSET_DEL_WITH_COOKIE = 0x4, /* like `HSET_DEL`, but requires the passed in
+                                   cookie to match the stored one */
+    HSET_MOD_WITH_COOKIE = 0x5, /* like `HSET_MOD`, but requires the passed in
+                                   cookie to match the stored one */
 };
 
 /*
