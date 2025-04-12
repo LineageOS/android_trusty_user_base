@@ -14,6 +14,10 @@
 * limitations under the License.
 */
 
+mod vintf_services;
+
+pub use vintf_services::{get_supported_vintf_services, VintfService};
+
 use alloc::ffi::CString;
 use binder::{ExceptionCode, FromIBinder, ParcelFileDescriptor, StatusCode, Strong};
 use rpcbinder::{FileDescriptorTransportMode, RpcSession};

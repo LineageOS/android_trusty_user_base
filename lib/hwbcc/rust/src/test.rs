@@ -15,10 +15,10 @@
  */
 
 use super::*;
-use ::test::{assert, assert_ne};
+use ::test::assert;
 
 #[cfg(feature = "generic-arm-unittest")]
-use ::test::assert_eq;
+use ::test::{assert_eq, assert_ne};
 
 #[cfg(feature = "generic-arm-unittest")]
 use system_state::{SystemState, SystemStateFlag};
@@ -94,6 +94,7 @@ fn test_get_dice_artifacts() {
     }
 }
 
+#[cfg(not(feature = "trusty_vm_guest"))]
 #[test]
 fn test_ns_deprivilege() {
     ns_deprivilege().expect("could not execute ns deprivilege");
@@ -103,6 +104,7 @@ fn test_ns_deprivilege() {
     assert!(get_dice_artifacts(0, dice_artifacts_buf).is_ok());
 }
 
+#[cfg(not(feature = "trusty_vm_guest"))]
 #[test]
 fn test_get_bcc_test_mode() {
     let mut bcc_buf = [0u8; HWBCC_MAX_RESP_PAYLOAD_LENGTH];
@@ -191,6 +193,7 @@ fn test_get_bcc() {
     assert_eq!(dk_pub_key, km_pub_key);
 }
 
+#[cfg(not(feature = "trusty_vm_guest"))]
 #[test]
 fn test_sign_data_test_mode() {
     let mut cose_sign1_buf = [0u8; HWBCC_MAX_RESP_PAYLOAD_LENGTH];
@@ -207,7 +210,6 @@ fn test_sign_data_test_mode() {
     assert!(cose_sign1.len() > 0);
 }
 
-#[cfg(feature = "generic-arm-unittest")]
 #[test]
 fn test_sign_data() {
     let mut cose_sign1_buf = [0u8; HWBCC_MAX_RESP_PAYLOAD_LENGTH];

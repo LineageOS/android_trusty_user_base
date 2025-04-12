@@ -26,7 +26,10 @@ MODULE_SDK_LIB_NAME := service_manager-rust
 MODULE_LIBRARY_DEPS += \
 	frameworks/native/libs/binder/trusty/rust \
 	frameworks/native/libs/binder/trusty/rust/rpcbinder \
+	trusty/user/app/sample/hwcryptohal/aidl/rust  \
+	trusty/user/base/interface/authmgr/rust \
 	trusty/user/base/interface/binder_accessor \
+	trusty/user/base/interface/secure_storage/rust \
 	trusty/user/base/lib/tipc/rust \
 	trusty/user/base/lib/trusty-std \
 

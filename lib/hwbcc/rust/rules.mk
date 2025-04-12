@@ -60,10 +60,22 @@ MODULE_BINDGEN_FLAGS := \
 MODULE_BINDGEN_SRC_HEADER := $(LOCAL_DIR)/bindings.h
 
 # Enable tests specific to the generic emulator build,
-# which depend on the device-specific BCC key
+# which depend on the device-specific BCC key.
+# Exclude trusty as a VM guest since on arm those builds run
+# as part of the generic-arm64 platform but do not use the
+# same hardcoded key.
 ifeq (generic-arm64, $(PLATFORM))
+ifeq (false,$(call TOBOOL,$(TRUSTY_VM_GUEST)))
 MODULE_RUSTFLAGS += --cfg 'feature="generic-arm-unittest"'
 endif
+endif
+
+# Some functionality of hwbcc does not exist in VMs
+# like TEST_MODE and ns_deprivilege.
+ifeq (true,$(call TOBOOL,$(TRUSTY_VM_GUEST)))
+MODULE_RUSTFLAGS += --cfg 'feature="trusty_vm_guest"'
+endif
+
 
 MODULE_RUST_TESTS := true
 
