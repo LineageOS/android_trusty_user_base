@@ -121,4 +121,59 @@ mod tests {
             Err(binder::StatusCode::BAD_VALUE),
         )
     }
+
+    #[test]
+    fn test_handover_service_name_to_trusty_port_under_max_without_trustedhal_prefix() {
+        expect_eq!(
+            service_name_to_trusty_port("IHandover/android.hardware.security.IHelloWorld/default"),
+            Ok("android.hardware.security.IHelloWorld/default.hnd".to_owned()),
+        );
+    }
+
+    #[test]
+    fn test_handover_service_name_to_trusty_port_under_max_with_trustedhal_prefix() {
+        expect_eq!(
+            service_name_to_trusty_port(
+                "IHandover/android.hardware.security.see.hwcrypto.IHwCryptoKey/default"
+            ),
+            Ok("android.hardware.security.see.hwcrypto.IHwCryptoKey/default.hnd".to_owned()),
+        )
+    }
+
+    #[test]
+    fn test_handover_service_name_to_trusty_port_too_long_without_trustedhal_prefix() {
+        expect_eq!(
+            service_name_to_trusty_port(
+                "IHandover/android.hardware.some.too.long.path.secure.ISecureStorage/default"
+            ),
+            Err(binder::StatusCode::BAD_VALUE),
+        )
+    }
+
+    #[test]
+    fn test_handover_service_name_to_trusty_port_too_long_with_trustedhal_prefix() {
+        expect_eq!(
+            service_name_to_trusty_port(
+                "IHandover/android.hardware.security.see.secure.storage.ISecureStorage/default"
+            ),
+            Ok("ahss.secure.storage.ISecureStorage/default.hnd".to_owned()),
+        )
+    }
+
+    #[test]
+    fn test_handover_service_name_to_trusty_port_too_long_with_wrong_pattern() {
+        expect_eq!(
+            service_name_to_trusty_port(
+                "wrong.IHandover/hardware.security.secure.storage.ISecureStorage/default"
+            ),
+            Err(binder::StatusCode::BAD_VALUE),
+        );
+
+        expect_eq!(
+            service_name_to_trusty_port(
+                "android.hardware.some.too.long.path.ISecureStorage/default/IHandover/"
+            ),
+            Err(binder::StatusCode::BAD_VALUE),
+        )
+    }
 }

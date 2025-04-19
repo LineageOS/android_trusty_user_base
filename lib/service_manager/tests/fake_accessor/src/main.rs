@@ -3,7 +3,7 @@ use binder::{BinderFeatures, Interface, ParcelFileDescriptor, Status};
 use rpcbinder::RpcServer;
 use service_manager::{service_name_to_trusty_c_port, service_name_to_trusty_port};
 use std::os::fd::{FromRawFd, OwnedFd};
-use tipc::{service_dispatcher, wrap_service, Manager, PortCfg, Uuid};
+use tipc::{service_dispatcher, wrap_service, Manager, PortCfg};
 use trusty_binder_accessor::aidl::trusty::os::ITrustyAccessor::{
     BnTrustyAccessor, ITrustyAccessor, ERROR_FAILED_TO_CREATE_SOCKET,
 };
@@ -17,7 +17,7 @@ const ACCESSOR_MISMATCH_TEST_NAME: &str = "com.android.trusty.test_service.ISMTe
 // This port is locked down to not allow access to any existing TAs. It allows the client tests
 // to exercise connection failure paths.
 const ACCESSOR_NO_PERMISSIONS: &str = "com.android.trusty.test_service.ISMTestService/eperm";
-const EMPTY_ALLOWED_UUIDS: &[Uuid] = &[];
+
 struct FakeAccessor;
 impl Interface for FakeAccessor {}
 impl ITrustyAccessor for FakeAccessor {
@@ -76,12 +76,17 @@ fn main() {
     dispatcher
         .add_service(test_service.clone(), cfg)
         .expect("failed to add mismatch test port to dispatcher");
+
+    // Purposefully do not set the ta or ns allow flags.
+    // If we reject by UUID allow list instead, there is a race condition
+    // between the connection being accepted and then subsequently dropped
+    // when the permission check happens in user space on the server.
+    // This is typically fine, but leads to non-deterministic behavior in
+    // tests that are trying to test rejected connections.
     let cfg = PortCfg::new(
         service_name_to_trusty_port(ACCESSOR_NO_PERMISSIONS).expect("no perm port to be resolved"),
     )
-    .expect("could not create port config")
-    .allow_ta_connect()
-    .allowed_uuids(EMPTY_ALLOWED_UUIDS);
+    .expect("could not create port config");
     dispatcher.add_service(test_service, cfg).expect("failed to add eperm test port to dispatcher");
     Manager::<_, _, 3, 1>::new_with_dispatcher(dispatcher, [])
         .expect("Service manager could not be created")

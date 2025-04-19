@@ -33,6 +33,8 @@ const MAX_TIPC_PORT_NAME_LEN: usize = 64;
 const TRUSTY_BINDER_RPC_PORT_SUFFIX: &str = ".bnd";
 const TRUSTED_HAL_COMMON_PREFIX: &str = "android.hardware.security.see";
 const TRUSTED_HAL_REPLACEMENT_PREFIX: &str = "ahss";
+pub const HANDOVER_SERVICE_PREFIX: &str = "IHandover/";
+const HANDOVER_SERVICE_SUFFIX: &str = ".hnd";
 
 #[derive(Debug, PartialEq)]
 enum Error {
@@ -195,6 +197,11 @@ fn get_new_rpc_session() -> RpcSession {
 //
 // So for example, "android.hardware.security.see.authmgr.IAuthMgrAuthorization/default"
 // will result in a port name of ahss.authmgr.IAuthMgrAuhtorization/default .
+//
+// This function also constructs (shortened) port names for the handover services associated with
+// the trusted services. An example handover service's name given as:
+// "IHandover/android.hardware.security.see.secure.storage.ISecureStorage/default" will result in a
+// port name of: "ahss.secure.storage.ISecureStorage/default.hnd".
 fn try_long_service_name_to_port(service_name: &str) -> Result<String, StatusCode> {
     let mut port_name = String::new();
 
@@ -202,31 +209,41 @@ fn try_long_service_name_to_port(service_name: &str) -> Result<String, StatusCod
         // Since we're in this function, we already know the given service_name is too long
         // and a None here means we won't shorten it since our prefix wasn't found.
         None => Err(port_size_err(service_name)),
-        // In this case our pattern was found, but not at the front of the str, which
-        // is not a valid case for our name shortening. Since we're in this function
-        // we now know we have a name that's too long and we can't shorten.
+        // In this case our pattern was found, but not at the front of the str. We first check
+        // whether the front of the str matches the prefix for the handover service and handle it
+        // accordingly.
+        Some((pre, post)) if pre == HANDOVER_SERVICE_PREFIX => {
+            build_shortened_port_name(&mut port_name, post, HANDOVER_SERVICE_SUFFIX)
+        }
+        // The front of the str doesn't match any known prefix. Therefore, it is not a valid case
+        // for our name shortening. Since we're in this function we now know we have a name that's
+        // too long and we can't shorten.
         Some((pre, _)) if !pre.is_empty() => Err(port_size_err(service_name)),
         Some((_, post)) => {
-            port_name
-                .try_reserve(
-                    TRUSTED_HAL_REPLACEMENT_PREFIX.len()
-                        + post.len()
-                        + TRUSTY_BINDER_RPC_PORT_SUFFIX.len(),
-                )
-                .map_err(|_| StatusCode::NO_MEMORY)?;
-
-            port_name.push_str(TRUSTED_HAL_REPLACEMENT_PREFIX);
-            port_name.push_str(post);
-            port_name.push_str(TRUSTY_BINDER_RPC_PORT_SUFFIX);
-
-            // Check size again. It's possible we weren't able to shorten the name enough.
-            if !is_valid_port_len(port_name.len()) {
-                return Err(port_size_err(&port_name));
-            }
-
-            Ok(port_name)
+            build_shortened_port_name(&mut port_name, post, TRUSTY_BINDER_RPC_PORT_SUFFIX)
         }
     }
+}
+
+fn build_shortened_port_name(
+    port_name: &mut String,
+    service_name: &str,
+    suffix: &str,
+) -> Result<String, StatusCode> {
+    port_name
+        .try_reserve(TRUSTED_HAL_REPLACEMENT_PREFIX.len() + service_name.len() + suffix.len())
+        .map_err(|_| StatusCode::NO_MEMORY)?;
+
+    port_name.push_str(TRUSTED_HAL_REPLACEMENT_PREFIX);
+    port_name.push_str(service_name);
+    port_name.push_str(suffix);
+
+    // Check size again. It's possible we weren't able to shorten the name enough.
+    if !is_valid_port_len(port_name.len()) {
+        return Err(port_size_err(port_name));
+    }
+
+    Ok(port_name.clone())
 }
 
 fn is_valid_port_len(port_len: usize) -> bool {
@@ -248,13 +265,22 @@ fn port_size_err(service_name: &str) -> StatusCode {
 }
 
 /// A helper to transform a binder service name to a trusty port name.
-/// A suffix is added to the service name to identify it as a port that is serving
+/// A suffix (".bnd") is added to the service name to identify it as a port that is serving
 /// binders.
 ///
 /// Some known trusted hal services, those that start with android.hardware.security.see
 /// are transformed to fit within trusty's port length limits.
+///
+/// Similarly, this function also transforms the handover services' names to a trusty port name.
+/// A handover service name is detected by the prefix: "IHandover/", which is removed in the
+/// returned port name. A different suffix of ".hnd" is added to the returned port name.
 pub fn service_name_to_trusty_port(service_name: &str) -> Result<String, StatusCode> {
-    let service_name_len = service_name.len() + TRUSTY_BINDER_RPC_PORT_SUFFIX.len();
+    let is_handover_service_name = service_name.starts_with(HANDOVER_SERVICE_PREFIX);
+    let service_name_len = if is_handover_service_name {
+        service_name.len() - HANDOVER_SERVICE_PREFIX.len() + HANDOVER_SERVICE_SUFFIX.len()
+    } else {
+        service_name.len() + TRUSTY_BINDER_RPC_PORT_SUFFIX.len()
+    };
 
     // TODO: b/403531416 - remove this once longer port names are supported in trusty
     if !is_valid_port_len(service_name_len) {
@@ -262,11 +288,15 @@ pub fn service_name_to_trusty_port(service_name: &str) -> Result<String, StatusC
     }
 
     let mut port_name = String::new();
-
     port_name.try_reserve(service_name_len).map_err(|_| StatusCode::NO_MEMORY)?;
 
-    port_name.push_str(service_name);
-    port_name.push_str(TRUSTY_BINDER_RPC_PORT_SUFFIX);
+    if is_handover_service_name {
+        port_name.push_str(extract_handover_service_name(service_name)?);
+        port_name.push_str(HANDOVER_SERVICE_SUFFIX);
+    } else {
+        port_name.push_str(service_name);
+        port_name.push_str(TRUSTY_BINDER_RPC_PORT_SUFFIX);
+    }
 
     Ok(port_name)
 }
@@ -279,4 +309,17 @@ pub fn service_name_to_trusty_c_port(service_name: &str) -> Result<CString, Stat
     port_name.try_reserve_exact(1).map_err(|_| StatusCode::NO_MEMORY)?;
 
     CString::new(port_name).map_err(|_| StatusCode::BAD_VALUE)
+}
+
+// A helper function to extract the handover service name by removing the prefix: "IHandover".
+fn extract_handover_service_name(prefixed_handover_service_name: &str) -> Result<&str, StatusCode> {
+    match prefixed_handover_service_name.split_once(HANDOVER_SERVICE_PREFIX) {
+        // In this case our pattern was found, but not at the front of the str, which
+        // is not a valid case.
+        Some((pre, _)) if !pre.is_empty() => Err(StatusCode::BAD_VALUE),
+        Some((_, post)) => Ok(post),
+        // Since we're in this function, we already know the given service_name should contain the
+        // prefix. So this match arm cannot be hit.
+        None => Err(StatusCode::BAD_VALUE),
+    }
 }
