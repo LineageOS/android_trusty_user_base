@@ -19,6 +19,7 @@ mod vintf_services;
 pub use vintf_services::{get_supported_vintf_services, VintfService};
 
 use alloc::ffi::CString;
+use authmgr_common::CMD_RPC;
 use binder::{ExceptionCode, FromIBinder, ParcelFileDescriptor, StatusCode, Strong};
 use rpcbinder::{FileDescriptorTransportMode, RpcSession};
 use std::ffi::CStr;
@@ -35,6 +36,9 @@ const TRUSTED_HAL_COMMON_PREFIX: &str = "android.hardware.security.see";
 const TRUSTED_HAL_REPLACEMENT_PREFIX: &str = "ahss";
 pub const HANDOVER_SERVICE_PREFIX: &str = "IHandover/";
 const HANDOVER_SERVICE_SUFFIX: &str = ".hnd";
+// The trailing slash ensures some future interface IAuthMgrAuthorizationMORE doesn't also match
+// this criteria.
+const AUTHMGR_NAME_PREFIX: &str = "android.hardware.security.see.authmgr.IAuthMgrAuthorization/";
 
 #[derive(Debug, PartialEq)]
 enum Error {
@@ -64,13 +68,20 @@ pub fn wait_for_interface<T: FromIBinder + ?Sized>(name: &str) -> Result<Strong<
     let c_port_name = service_name_to_trusty_c_port(name)?;
     let port_name = c_port_name.as_c_str().to_str().map_err(|_| StatusCode::BAD_VALUE)?;
 
+    // IAuthMgrAuthorization is a special case. As per the protocol spec,
+    // it multiplexes to two different services on the same port depending
+    // on an initial control byte. The service_manager lib only deals with
+    // AIDL services so we always send the RPC command.
+    let control_byte = if name.starts_with(AUTHMGR_NAME_PREFIX) { Some(CMD_RPC) } else { None };
+
     // First try and see if our service is gated by an ITrustyAccessor implementation.
     // This is a binder service exposed on the port we've connected to that acts as
     // an intermediary for resolving connections to the requested service. It was originally
     // introduced to allow for authentication and authorization of the caller before handing
     // back a handle to the requested service.
+    log::trace!("Attempting to get ITrustyAccessor at port {:?}", port_name);
     let mut session = get_new_rpc_session();
-    match setup_trusty_client(&session, &c_port_name) {
+    match setup_trusty_client(&session, &c_port_name, control_byte) {
         Ok(accessor) => {
             let service_fd = fd_from_accessor(&accessor, name)?;
 
@@ -98,8 +109,9 @@ pub fn wait_for_interface<T: FromIBinder + ?Sized>(name: &str) -> Result<Strong<
     }
 
     // The binder on the other end was likely not an accessor, try a direct connection.
+    log::trace!("Attempting to get direct interface at port {:?}", port_name);
     session = get_new_rpc_session();
-    setup_trusty_client(&session, &c_port_name).map_err(|e| {
+    setup_trusty_client(&session, &c_port_name, control_byte).map_err(|e| {
         log::error!("failed to setup binder on {:?} {:?}", &port_name, e);
         match e {
             // This is an unexpected case. We've already successfully connected to this port once.
@@ -162,17 +174,29 @@ fn rpcbinder_from_parcel_fd<T: FromIBinder + ?Sized>(
     session.setup_preconnected_client(move || Some(raw_fd))
 }
 
-/// Pretty much a re-implementation of RpcSession::setup_trusty_client but does not panic
-/// when a connection fails. As a bonus, we can differentiate between a failed raw connection
-/// and other binder-specific errors.
+/// Sets up a new RpcSession with a new tipc connection.
+/// A re-implementation of RpcSession::setup_trusty_client but does not panic.
+///
+/// If control_byte is set, this byte will be sent on the opened handle before
+/// setting up the session.
 fn setup_trusty_client<T: FromIBinder + ?Sized>(
     session: &RpcSession,
     port: &CStr,
+    control_byte: Option<u8>,
 ) -> Result<Strong<T>, Error> {
     let h = tipc::Handle::connect(port).map_err(|e| {
         log::error!("Failed to connect to port {:?} {:?}", port, e);
         Error::ConnectionFailed
     })?;
+
+    if let Some(c) = control_byte {
+        log::trace!("sending control byte on port {port:?}");
+        h.send(&c).map_err(|e| {
+            log::error!("Failed to send control byte on port {:?} {:?}", port, e);
+            Error::ConnectionFailed
+        })?;
+    }
+
     // Do not close the handle at the end of the scope
     let fd = h.as_raw_fd();
     core::mem::forget(h);

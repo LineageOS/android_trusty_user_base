@@ -30,6 +30,7 @@ MODULE_LIBRARY_DEPS += \
 	trusty/user/base/interface/authmgr/rust \
 	trusty/user/base/interface/binder_accessor \
 	trusty/user/base/interface/secure_storage/rust \
+	trusty/user/base/lib/authmgr-common-rust \
 	trusty/user/base/lib/tipc/rust \
 	trusty/user/base/lib/trusty-std \
 

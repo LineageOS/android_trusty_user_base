@@ -1,9 +1,26 @@
+/*
+ * Copyright (C) 2025 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 use alloc::collections::TryReserveError;
 use alloc::ffi::CString;
 use diced_open_dice::{
     bcc_handover_parse, retry_bcc_format_config_descriptor, retry_bcc_main_flow,
-    retry_sign_cose_sign1_with_cdi_leaf_priv, Config, DiceArtifacts, DiceConfigValues, DiceMode,
-    Hash, Hidden, InputValues, OwnedDiceArtifacts, CDI_SIZE, HASH_SIZE, HIDDEN_SIZE,
+    retry_dice_main_flow, retry_sign_cose_sign1_with_cdi_leaf_priv, Config, DiceArtifacts,
+    DiceConfigValues, DiceMode, Hash, Hidden, InputValues, OwnedDiceArtifacts, CDI_SIZE, HASH_SIZE,
+    HIDDEN_SIZE,
 };
 use hwbcc::srv::{HwBccOps, RequestContext};
 use hwbcc::{HwBccError, HwBccMode};
@@ -14,6 +31,9 @@ use trusty_sys::handle_t;
 mod sys {
     include!(env!("BINDGEN_INC_FILE"));
 }
+
+mod thread_safe;
+pub use thread_safe::PvmDiceThreadSafe;
 
 // Currently we do not support dynamically loading apps into trusty pVMs.
 // As such, all user space apps are packaged and signed together with
@@ -52,6 +72,14 @@ pub enum PvmDiceError {
     /// Returned on construction of PvmDice if we can't ensure that
     /// the apploader user space service is not and cannot run.
     ApploaderInvariantViolated,
+    /// An error serializing to COSE
+    CoseSerialization(coset::CoseError),
+}
+
+impl From<coset::CoseError> for PvmDiceError {
+    fn from(e: coset::CoseError) -> Self {
+        PvmDiceError::CoseSerialization(e)
+    }
 }
 
 impl From<diced_open_dice::DiceError> for PvmDiceError {
@@ -68,6 +96,7 @@ impl From<TryReserveError> for PvmDiceError {
 
 /// An implementation of the hwbcc interface for trusty guests running in
 /// protected virtual machines (pVMs).
+#[derive(Clone)]
 pub struct PvmDice {
     bcc: Vec<u8>,
     cdi_attest: [u8; CDI_SIZE],
@@ -107,20 +136,40 @@ impl PvmDice {
         }
     }
 
+    /// Derive the leaf cert as CBOR for a given trusty TA identified by its Uuid.
+    ///
+    /// The resulting `Vec<u8>` is an encoded CoseSign1 object as per the DICE specification
+    /// for DICE certs.
+    pub fn derive_dice_cert_for_ta(&self, uuid: Uuid) -> Result<Vec<u8>, PvmDiceError> {
+        let request_ctx = RequestContext { peer: uuid };
+        let config_descriptor = config_descriptor_for_trusty_user_app(&request_ctx)?;
+        let input_values = dice_input_values_for_trusty_user_app(config_descriptor.as_slice());
+
+        let (_, ta_cert) = retry_dice_main_flow(&self.cdi_attest, &self.cdi_seal, &input_values)?;
+
+        Ok(ta_cert)
+    }
+
     fn derive_next_dice_artifacts(
         &self,
         request_ctx: &RequestContext,
     ) -> Result<OwnedDiceArtifacts, HwBccError> {
         let config_descriptor = config_descriptor_for_trusty_user_app(request_ctx)?;
-        let input_values = InputValues::new(
-            TRUSTY_NON_LOADABLE_CODE_HASH,
-            Config::Descriptor(config_descriptor.as_slice()),
-            TRUSTY_NON_LOADABLE_AUTHORITY_HASH,
-            dice_mode_for_trusty_user_space_certs(),
-            EMPTY_HIDDEN_INPUTS,
-        );
+        let input_values = dice_input_values_for_trusty_user_app(config_descriptor.as_slice());
 
         Ok(retry_bcc_main_flow(&self.cdi_attest, &self.cdi_seal, &self.bcc, &input_values)?)
+    }
+}
+
+impl DiceArtifacts for PvmDice {
+    fn cdi_attest(&self) -> &[u8; CDI_SIZE] {
+        &self.cdi_attest
+    }
+    fn cdi_seal(&self) -> &[u8; CDI_SIZE] {
+        &self.cdi_seal
+    }
+    fn bcc(&self) -> Option<&[u8]> {
+        Some(&self.bcc)
     }
 }
 
@@ -194,7 +243,7 @@ fn dice_mode_for_trusty_user_space_certs() -> DiceMode {
 /// Generate config descriptor for a dice derivation based on the calling app.
 fn config_descriptor_for_trusty_user_app(
     request_ctx: &RequestContext,
-) -> Result<Vec<u8>, HwBccError> {
+) -> Result<Vec<u8>, diced_open_dice::DiceError> {
     let component_config = dice_component_specific_config_values(request_ctx);
 
     let config_values = DiceConfigValues {
@@ -208,6 +257,16 @@ fn config_descriptor_for_trusty_user_app(
     };
 
     Ok(retry_bcc_format_config_descriptor(&config_values)?)
+}
+
+fn dice_input_values_for_trusty_user_app(config_descriptor: &[u8]) -> InputValues {
+    InputValues::new(
+        TRUSTY_NON_LOADABLE_CODE_HASH,
+        Config::Descriptor(config_descriptor),
+        TRUSTY_NON_LOADABLE_AUTHORITY_HASH,
+        dice_mode_for_trusty_user_space_certs(),
+        EMPTY_HIDDEN_INPUTS,
+    )
 }
 
 /// Derive a component name from an incoming request.
@@ -238,6 +297,11 @@ fn dice_component_specific_config_values(
 /// of the dice chain should recognize the app as different from the production
 /// variant.
 fn enforce_no_apploader_invariant() -> Result<handle_t, PvmDiceError> {
+    if cfg!(TEST_BUILD) {
+        log::warn!("Not attempting to claim apploader port because TEST_BUILD is set");
+        return Ok(-1);
+    }
+
     let port = CStr::from_bytes_with_nul(sys::APPLOADER_PORT)
         .map_err(|_| PvmDiceError::ApploaderInvariantViolated)?;
 
@@ -253,11 +317,6 @@ fn enforce_no_apploader_invariant() -> Result<handle_t, PvmDiceError> {
     };
 
     if rc < 0 {
-        if cfg!(TEST_BUILD) {
-            log::warn!("Failed to claim apploader port. Ignoring because TEST_BUILD is set.");
-            return Ok(-1);
-        }
-
         log::error!("Failed to claim apploader port. PvmDice invariant check failed: {}", rc);
 
         return Err(PvmDiceError::ApploaderInvariantViolated);
@@ -274,20 +333,23 @@ fn enforce_no_apploader_invariant() -> Result<handle_t, PvmDiceError> {
 mod test {
     use crate::PvmDice;
     use authgraph_boringssl::BoringEcDsa;
-    use authgraph_core::key::DiceChainEntry;
+    use authgraph_core::key::{CertChain, DiceChainEntry};
     use authgraph_core::traits::EcDsa;
     use ciborium::value::Value;
-    use coset::{AsCborValue, CborSerializable};
+    use coset::{AsCborValue, CborSerializable, CoseSign1};
     use diced_open_dice::DiceArtifacts;
     use diced_sample_inputs::make_sample_bcc_and_cdis;
     use hwbcc::srv::{HwBccOps, RequestContext};
     use hwbcc::HwBccMode;
-    use test::expect;
+    use std::cell::LazyCell;
+    use test::{expect, expect_eq};
     use tipc::Uuid;
     ::test::init!();
 
     const TEST_MESSAGE: &[u8] = "pvmdice test message".as_bytes();
     const TEST_AAD: &[u8] = "pvmdice test aad".as_bytes();
+    const TEST_UUID: LazyCell<Uuid> =
+        LazyCell::new(|| Uuid::new_from_string("c07129be-cabb-4d4d-837f-ea8fd204dcf1").unwrap());
 
     #[test]
     fn test_init_empty_handover() {
@@ -349,6 +411,57 @@ mod test {
                 sign
             ))
             .is_ok());
+    }
+
+    #[test]
+    fn test_pvmdice_as_dice_artifacts() {
+        let dice_artifacts = make_sample_bcc_and_cdis().unwrap();
+        let handover = to_bcc_handover(&dice_artifacts);
+        let pvmdice = PvmDice::try_new(&handover).unwrap();
+
+        expect_eq!(dice_artifacts.bcc(), pvmdice.bcc());
+        expect_eq!(dice_artifacts.cdi_attest(), pvmdice.cdi_attest());
+        expect_eq!(dice_artifacts.cdi_seal(), pvmdice.cdi_seal());
+    }
+
+    #[test]
+    fn test_derive_dice_cert_for_ta() {
+        let dice_artifacts = make_sample_bcc_and_cdis().unwrap();
+        let handover = to_bcc_handover(&dice_artifacts);
+        let pvmdice = PvmDice::try_new(&handover).unwrap();
+
+        let ta_cert_res = pvmdice.derive_dice_cert_for_ta(TEST_UUID.clone());
+        expect!(ta_cert_res.is_ok());
+    }
+
+    /// TA certificate generation is an optimization.
+    /// Certain users of pvmdice, like Keymint, may end up
+    /// deriving a dice chain with `get_bcc()` and also having
+    /// a leaf cert generated for them when they access a trusted
+    /// service from a pVM. This test asserts that certs representing
+    /// a TA remain the same no matter how they are derived.
+    #[test]
+    fn test_ta_cert_and_bcc_leaf_cert_match() {
+        let dice_artifacts = make_sample_bcc_and_cdis().unwrap();
+        let handover = to_bcc_handover(&dice_artifacts);
+        let pvmdice = PvmDice::try_new(&handover).unwrap();
+
+        let rq = RequestContext { peer: TEST_UUID.clone() };
+
+        let bcc_cbor_res = pvmdice.get_bcc(&rq, HwBccMode::Release);
+        expect!(bcc_cbor_res.is_ok());
+        let bcc_cbor = bcc_cbor_res.unwrap();
+        let dice_chain_res = CertChain::from_non_explicit_key_cert_chain(bcc_cbor.as_slice());
+        let dice_chain = dice_chain_res.unwrap();
+        let leaf_cert = dice_chain.dice_cert_chain.unwrap().pop().unwrap();
+
+        let ta_cert_res = pvmdice.derive_dice_cert_for_ta(TEST_UUID.clone());
+        expect!(ta_cert_res.is_ok());
+        let ta_cert = ta_cert_res.unwrap();
+        let ta_cert_cose = CoseSign1::from_slice(ta_cert.as_slice());
+        expect!(ta_cert_cose.is_ok());
+
+        expect_eq!(ta_cert_cose.unwrap(), leaf_cert.signature);
     }
 
     fn leaf_cert_from_non_explicit_chain(dice_chain: &Vec<u8>) -> DiceChainEntry {
