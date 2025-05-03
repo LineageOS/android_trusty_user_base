@@ -54,11 +54,15 @@ endif
 # of MODULE_AIDL_PACKAGE; support multiple packages
 GET_AIDL_PACKAGE_ROOT = $(if $(MODULE_AIDL_PACKAGE),$(firstword $(subst $(MODULE_AIDL_PACKAGE), ,$1)),$(dir $1))
 
-ifneq (,$(wildcard out/host/linux-x86/bin/aidl))
+ifneq (,$(ANDROID_BUILD_TOP))
 # Use the aidl tool from the build output if it exists
-AIDL_TOOL := out/host/linux-x86/bin/aidl
+AIDL_TOOL ?= $(wildcard $(ANDROID_BUILD_TOP)/out/host/linux-x86/bin/aidl)
 else
-AIDL_TOOL := prebuilts/build-tools/linux-x86/bin/aidl
+AIDL_TOOL ?= $(wildcard prebuilts/build-tools/linux-x86/bin/aidl)
+endif
+
+ifeq ($(AIDL_TOOL),)
+$(error No AIDL_TOOL. Please build the AIDL compiler or checkout the main-trusty branch)
 endif
 
 MODULE_AIDL_INCLUDES ?=
@@ -145,5 +149,4 @@ MODULE_AIDL_RUST_DEPS :=
 AIDL_EXT :=
 AIDL_HEADER_DIR :=
 AIDL_SRCS :=
-AIDL_TOOL :=
 AIDL_ROOT_RS :=
