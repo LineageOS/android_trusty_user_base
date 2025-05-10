@@ -53,32 +53,16 @@ pub trait VintfService {
 pub struct VintfServiceImpl<T: FromIBinder + ?Sized> {
     name: &'static str,
     phantom: PhantomData<T>,
-    unimplemented: bool,
 }
 
 impl<T: FromIBinder + ?Sized> VintfServiceImpl<T> {
     fn new(name: &'static str) -> Self {
-        Self { name, phantom: PhantomData, unimplemented: false }
-    }
-
-    // TODO: b/408414703 - remove once IAuthMgrAuthorization is exposed by authmgr-fe
-    // An implementation of VintfService that will fail when `get_binder` is
-    // called. For services that are not yet implemented, this is preferable
-    // to hanging forever waiting for an unpublished port.
-    fn new_unimplemented(name: &'static str) -> Self {
-        Self { name, phantom: PhantomData, unimplemented: true }
+        Self { name, phantom: PhantomData }
     }
 }
 
 impl<T: FromIBinder + ?Sized> VintfService for VintfServiceImpl<T> {
     fn get_binder(&self) -> binder::Result<SpIBinder> {
-        if self.unimplemented {
-            return Err(binder::Status::new_exception_str(
-                binder::ExceptionCode::UNSUPPORTED_OPERATION,
-                Some("VINTF service is not yet implemented"),
-            ));
-        }
-
         Ok(wait_for_interface::<T>(self.name)?.as_binder())
     }
 
@@ -96,7 +80,7 @@ pub fn get_supported_vintf_services() -> Vec<Box<dyn VintfService>> {
         Box::new(VintfServiceImpl::<dyn IHwCryptoKey>::new(
             "android.hardware.security.see.hwcrypto.IHwCryptoKey/default",
         )),
-        Box::new(VintfServiceImpl::<dyn IAuthMgrAuthorization>::new_unimplemented(
+        Box::new(VintfServiceImpl::<dyn IAuthMgrAuthorization>::new(
             "android.hardware.security.see.authmgr.IAuthMgrAuthorization/default",
         )),
     ]
