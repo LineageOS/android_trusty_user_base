@@ -221,7 +221,8 @@ static inline uint8_t* encodeBstrHeader(uint64_t bstrSize,
                                         uint8_t* outBuf) {
     struct CborOut fakeOut;
     const size_t bstrHeaderSize = cbor::encodedSizeOf(bstrSize);
-    assert(0 < bstrHeaderSize <= outBufSize);
+    assert(0 < bstrHeaderSize);
+    assert(bstrHeaderSize <= outBufSize);
     size_t fakeBufferSize;
     if (__builtin_add_overflow(bstrHeaderSize, bstrSize, &fakeBufferSize)) {
         return nullptr;
