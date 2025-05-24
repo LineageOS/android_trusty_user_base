@@ -388,6 +388,15 @@ struct ffa_part_info_desc {
 STATIC_ASSERT(sizeof(struct ffa_part_info_desc) == 24);
 
 /**
+ * typedef ffa_msg_wait_flag32_t - FFA_MSG_WAIT flags
+ *
+ * * @FFA_MSG_WAIT_FLAG_RETAIN_RX
+ *     Retain RX Buffer Ownership flag.
+ */
+typedef uint32_t ffa_msg_wait_flag32_t;
+#define FFA_MSG_WAIT_FLAG_RETAIN_RX (1U << 0)
+
+/**
  * enum ffa_error - FF-A error code
  * @FFA_ERROR_NOT_SUPPORTED:
  *         Operation is not supported by the current implementation.

@@ -37,8 +37,6 @@ MODULE_BINDGEN_FLAGS += \
 	--default-macro-constant-type="signed" \
 	--rustified-enum="point_conversion_form_t" \
 
-MODULE_RUSTFLAGS += --cfg 'unsupported_inline_wrappers'
-
 # These regexes use [[:punct:]] instead of / to handle Windows file paths.
 # Ideally we would write [/\\], but escaping rules are complex, and often
 # ill-defined, in some build systems, so align on [[:punct:]].
@@ -62,6 +60,8 @@ MODULE_BINDGEN_FLAGS += \
 MODULE_BINDGEN_OUTPUT_ENV_VAR := BINDGEN_RS_FILE
 
 MODULE_BINDGEN_OUTPUT_FILE_NAME := bindgen
+
+MODULE_BINDGEN_WRAP_STATIC_FNS := true
 
 MODULE_INCLUDES += \
 	$(BSSL_SRC_DIR)/include \
