@@ -33,6 +33,7 @@ mod sys {
 
     impl uevent {
         pub const ALL_EVENTS: u32 = u32::MAX;
+        pub const NO_EVENTS: u32 = 0;
     }
 }
 

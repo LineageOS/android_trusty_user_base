@@ -49,6 +49,17 @@ typedef int32_t handle_t;
 #define INFINITE_TIME UINT32_MAX
 
 /*
+ * The Trusty driver uses a 4096-byte shared buffer to transfer messages.
+ * However, the virtio/TIPC bridge overestimates the portion of the buffer
+ * available to it. Specifically, it does not account for the TIPC headers
+ * and the FDs being transferred. We reserve some of the buffer here to
+ * account for this. The reserved size is chosen to allow room for the
+ * TIPC header (16 bytes), 8x FD (24 bytes), plus some margin.
+ */
+#define TIPC_HDR_AND_FDS_MAX_SIZE 256
+#define VIRTIO_VSOCK_MSG_SIZE_LIMIT (4096 - TIPC_HDR_AND_FDS_MAX_SIZE)
+
+/*
  * Combination of these flags sets additional options
  * for port_create syscall.
  */

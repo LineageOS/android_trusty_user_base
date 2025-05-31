@@ -78,33 +78,26 @@ impl<H: Handler> RawHandleSet<H> {
         ret
     }
 
-    /// Remove a previously registered handle object.
-    pub fn remove(&self, event_cookie_obj: Arc<H>) -> Result<()> {
-        self.remove_raw(event_cookie_obj.get_raw_fd_id()).map(|_| ())
+    /// Set the event mask for a previously registered service handle.
+    pub fn set_event_mask(&self, event_cookie_obj: &Arc<H>, enabled_events: u32) -> Result<()> {
+        self.do_set_ctrl(sys::HSET_MOD_WITH_COOKIE as u32, enabled_events, &event_cookie_obj)
     }
 
-    /// Remove a previously registered handle object and return an arc to it.
-    pub fn remove_raw(&self, handle: i32) -> Result<Arc<H>> {
-        let mut uevt = trusty_sys::uevent { handle, event: 0, cookie: std::ptr::null_mut() };
-        // SAFETY: syscall. The uevent pointer points to a correctly initialized
-        // structure that is valid across the call. The handle for the handle set is valid for
-        // the same lifetime as self, so will remain valid at least as long as the handle object
-        // being added/modified.
-        let rc = unsafe {
-            trusty_sys::handle_set_ctrl(
-                self.handle.as_raw_fd(),
-                sys::HSET_DEL_GET_COOKIE,
-                &mut uevt,
-            )
-        };
-
-        if rc < 0 {
-            Err(TipcError::from_uapi(rc))
-        } else {
-            // SAFETY: the `cookie` is the `Arc` that we registered in `register`. Here, we
-            // successfully deleted the handle from the handle set and are returning its cookie.
-            unsafe { Ok(Arc::from_raw(uevt.cookie.cast::<H>())) }
+    /// Remove a previously registered service handle.
+    pub fn remove(&self, event_cookie_obj: Arc<H>) -> Result<()> {
+        let ret = self.do_set_ctrl(
+            sys::HSET_DEL_WITH_COOKIE as u32,
+            trusty_sys::uevent::NO_EVENTS,
+            &event_cookie_obj,
+        );
+        if ret.is_ok() {
+            // SAFETY: The ref count is at least 2 (local arg + kernel).
+            // Here, we decrement it to represent the successful removal from the kernel.
+            unsafe {
+                Arc::decrement_strong_count(Arc::as_ptr(&event_cookie_obj));
+            }
         }
+        ret
     }
 
     // Add, update or remove the handle object (event cookie object) from the kernel handle set.
@@ -112,6 +105,16 @@ impl<H: Handler> RawHandleSet<H> {
     // When this is called in the delete path, an arc to the deleted handle object is returned to
     // caller, without dropping it, because the caller may need it for further processing.
     fn do_set_ctrl(&self, cmd: u32, event: u32, event_cookie_obj: &Arc<H>) -> Result<()> {
+        if ![
+            sys::HSET_ADD as u32,
+            sys::HSET_MOD_WITH_COOKIE as u32,
+            sys::HSET_DEL_WITH_COOKIE as u32,
+        ]
+        .contains(&cmd)
+        {
+            // other commands can break our memory safety guarantees
+            return Err(TipcError::SystemError(trusty_sys::Error::InvalidArgs));
+        }
         let raw_handle_fd: i32 = event_cookie_obj.get_raw_fd_id();
         let cookie = Arc::as_ptr(event_cookie_obj);
         let mut uevt =

@@ -16,3 +16,5 @@
 #pragma once
 
 #define STORAGE_ISECURE_STORAGE_PORT "com.android.hardware.security.see.storage"
+#define STORAGE_ISECURE_STORAGE_HANDOVER_PORT \
+    "ahss.storage.ISecureStorage/default.hnd"

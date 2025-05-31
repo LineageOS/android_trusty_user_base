@@ -183,20 +183,19 @@ impl<S: UnbufferedService> HandleSetWrapper<S> {
             error!("A connection type handle is expected. Received: {:?}", &service_handle.ty);
             return Err(TipcError::InvalidData);
         }
-        self.remove(service_handle)?;
-        Ok(())
+        self.remove(service_handle)
     }
 
-    /// Remove a handle from the handle set
+    /// Set a port's event mask.
+    pub fn set_event_mask(&self, port_wrapper: &PortWrapper<S>, enabled_events: u32) -> Result<()> {
+        let hs = self.handle_set.lock().unwrap();
+        hs.set_event_mask(&port_wrapper.service_handle, enabled_events)
+    }
+
+    /// Remove a service handle from the handle set.
     pub fn remove(&self, service_handle: Arc<ServiceHandle<S>>) -> Result<()> {
         let hs = self.handle_set.lock().unwrap();
         hs.remove(service_handle)
-    }
-
-    /// Remove a handle from the handle set
-    pub fn remove_raw(&self, handle: i32) -> Result<Arc<ServiceHandle<S>>> {
-        let hs = self.handle_set.lock().unwrap();
-        hs.remove_raw(handle)
     }
 
     /// Add a work item
@@ -209,7 +208,7 @@ impl<S: UnbufferedService> HandleSetWrapper<S> {
 #[cfg(test)]
 mod test {
     use crate::handle::test::{first_free_handle_index, MAX_USER_HANDLES};
-    use crate::raw::{raw_handle_set::Handler, HandleSetWrapper};
+    use crate::raw::{service_handle::PortWrapper, HandleSetWrapper, HandleType, ServiceHandle};
     use crate::{
         ConnectResult, Handle, MessageResult, PortCfg, Result, Service, TipcError,
         UnbufferedService, Uuid,
@@ -336,6 +335,67 @@ mod test {
     }
 
     #[test]
+    fn add_port_mask_wrapper() {
+        let handle_set_wrapper = HandleSetWrapper::<()>::new().unwrap();
+        let path = format!("{}.port.{}", SRV_PATH_BASE, "test");
+        let cfg = PortCfg::new(path).unwrap();
+        let service = Arc::new(());
+        {
+            let port_wrapper = handle_set_wrapper.add_port(&cfg, service.clone()).unwrap();
+            expect_eq!(Arc::strong_count(&service), 2);
+            handle_set_wrapper
+                .set_event_mask(&port_wrapper, trusty_sys::uevent::NO_EVENTS)
+                .unwrap();
+            handle_set_wrapper
+                .set_event_mask(&port_wrapper, trusty_sys::uevent::ALL_EVENTS)
+                .unwrap();
+        }
+        expect_eq!(Arc::strong_count(&service), 1);
+    }
+
+    #[test]
+    fn add_port_mask_corrupted_wrapper() {
+        let handle_set_wrapper = HandleSetWrapper::<()>::new().unwrap();
+        let path_1 = format!("{}.port.{}", SRV_PATH_BASE, "test_1");
+        let path_2 = format!("{}.port.{}", SRV_PATH_BASE, "test_2");
+        let cfg_1 = PortCfg::new(path_1).unwrap();
+        let cfg_2 = PortCfg::new(path_2).unwrap();
+        let service = Arc::new(());
+        {
+            let port_wrapper_1 = handle_set_wrapper.add_port(&cfg_1, service.clone()).unwrap();
+            let port_wrapper_2 = handle_set_wrapper.add_port(&cfg_2, service.clone()).unwrap();
+            let corrupted_port_wrapper = PortWrapper {
+                handle_set_wrapper: port_wrapper_1.handle_set_wrapper,
+                service_handle: Arc::new(ServiceHandle {
+                    handle: Handle::from_raw(port_wrapper_2.service_handle.handle.as_raw_fd())
+                        .unwrap(),
+                    service: service.clone(),
+                    ty: HandleType::Port(cfg_2),
+                }),
+            };
+            expect_eq!(Arc::strong_count(&service), 4);
+            expect_eq!(
+                Err(TipcError::SystemError(trusty_sys::Error::NotFound)),
+                handle_set_wrapper
+                    .set_event_mask(&corrupted_port_wrapper, trusty_sys::uevent::NO_EVENTS),
+                "the cookie doesn't match the handle"
+            );
+            handle_set_wrapper
+                .set_event_mask(&port_wrapper_2, trusty_sys::uevent::NO_EVENTS)
+                .unwrap();
+
+            // Manually destroy the corrupted wrapper before its `drop` causes problems.
+            // If its `Handle` is dropped, then the drop of `port_wrapper_2` will leak resources.
+            std::mem::forget(corrupted_port_wrapper);
+            // SAFETY: We are doing manual cleanup to destroy a deliberately corrupted object.
+            unsafe {
+                Arc::decrement_strong_count(Arc::as_ptr(&service));
+            }
+        }
+        expect_eq!(Arc::strong_count(&service), 1);
+    }
+
+    #[test]
     fn add_port_drop_wrapper() {
         let handle_set_wrapper = HandleSetWrapper::<()>::new().unwrap();
         let path = format!("{}.port.{}", SRV_PATH_BASE, "test");
@@ -346,33 +406,6 @@ mod test {
             handle_set_wrapper.add_port(&cfg, service.clone()).unwrap();
             expect_eq!(Arc::strong_count(&service), 1);
         }
-        expect_eq!(Arc::strong_count(&service), 1);
-    }
-
-    #[test]
-    fn add_connection() {
-        let handle_set_wrapper = HandleSetWrapper::<()>::new().unwrap();
-        let path = format!("{}.port.{}", SRV_PATH_BASE, "test");
-        let cfg = PortCfg::new(path).unwrap();
-        let service = Arc::new(());
-
-        // SAFETY: syscall, `cfg` is a local and outlives the call.
-        // The return value is either a negative error code or a valid handle.
-        let rc = unsafe {
-            trusty_sys::port_create(
-                cfg.get_path().as_ptr(),
-                cfg.get_msg_queue_len(),
-                cfg.get_msg_max_size(),
-                cfg.get_flags(),
-            )
-        };
-        expect!(rc >= 0, "created the connection handle");
-
-        let handle_fd = rc as i32;
-        let handle = Handle::from_raw(handle_fd).unwrap();
-        handle_set_wrapper.add_connection((), handle, service.clone()).unwrap();
-        expect_eq!(Arc::strong_count(&service), 2);
-        expect!(handle_set_wrapper.remove_raw(handle_fd).is_ok(), "removed the connection handle");
         expect_eq!(Arc::strong_count(&service), 1);
     }
 
@@ -401,39 +434,8 @@ mod test {
             expect_eq!(Arc::strong_count(&port_wrapper.service_handle), 2);
             expect_eq!(Arc::strong_count(&service), 2);
             expect!(handle_set_wrapper.remove(port_wrapper.service_handle.clone()).is_ok());
-            expect_eq!(Arc::strong_count(&port_wrapper.service_handle), 1);
-            expect_eq!(
-                Err(TipcError::SystemError(trusty_sys::Error::NotFound)),
-                handle_set_wrapper.remove(port_wrapper.service_handle.clone()),
-                "handle already removed"
-            );
-        }
-        // `port_wrapper.service_handle` gets removed one more time here
-        // when port_wrapper is dropped. This emits an error message.
-        expect_eq!(Arc::strong_count(&service), 1);
-    }
-
-    #[test]
-    fn remove_raw() {
-        let handle_set_wrapper = HandleSetWrapper::<()>::new().unwrap();
-        let path = format!("{}.port.{}", SRV_PATH_BASE, "test");
-        let cfg = PortCfg::new(path).unwrap();
-        let service = Arc::new(());
-        {
-            let port_wrapper = handle_set_wrapper.add_port(&cfg, service.clone()).unwrap();
-            expect_eq!(Arc::strong_count(&port_wrapper.service_handle), 2);
             expect_eq!(Arc::strong_count(&service), 2);
-            expect!(handle_set_wrapper
-                .remove_raw(port_wrapper.service_handle.get_raw_fd_id())
-                .is_ok());
-            expect_eq!(Arc::strong_count(&port_wrapper.service_handle), 1);
-            expect_eq!(
-                Err(TipcError::SystemError(trusty_sys::Error::NotFound)),
-                handle_set_wrapper.remove(port_wrapper.service_handle.clone())
-            );
         }
-        // `port_wrapper.service_handle` gets removed one more time here
-        // when port_wrapper is dropped. This emits an error message.
         expect_eq!(Arc::strong_count(&service), 1);
     }
 

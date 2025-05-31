@@ -120,10 +120,11 @@ endif
 
 # Generate the top-level aidl_lib.rs for this module
 $(AIDL_ROOT_RS): AIDL_RUST_GLUE_TOOL := $(AIDL_RUST_GLUE_TOOL)
+$(AIDL_ROOT_RS): AIDL_SRCS := $(AIDL_SRCS)
 $(AIDL_ROOT_RS): MODULE_AIDL_RUST_DEPS := $(foreach crate,$(MODULE_AIDL_RUST_DEPS),-I $(crate))
-$(AIDL_ROOT_RS): $(AIDL_SRCS)
+$(AIDL_ROOT_RS): $(AIDL_SRCS) $(AIDL_RUST_GLUE_TOOL)
 	@echo generating $@ from AIDL Rust glue
-	$(NOECHO)$(AIDL_RUST_GLUE_TOOL) $(MODULE_AIDL_RUST_DEPS) $@ $(dir $@) $^
+	$(NOECHO)$(AIDL_RUST_GLUE_TOOL) $(MODULE_AIDL_RUST_DEPS) $@ $(dir $@) $(AIDL_SRCS)
 
 MODULE_LIBRARY_DEPS += \
 	frameworks/native/libs/binder/trusty/rust \
