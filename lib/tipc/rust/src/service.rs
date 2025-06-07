@@ -28,7 +28,7 @@ use crate::handle::MAX_MSG_HANDLES;
 use crate::sys;
 use crate::{ConnectResult, Deserialize, Handle, MessageResult, Result, TipcError};
 use handle_set::HandleSet;
-
+use zerocopy::{FromBytes, Immutable, IntoBytes};
 mod handle_set;
 
 /// A description of a server-side IPC port.
@@ -262,7 +262,7 @@ impl<D: Dispatcher> Channel<D> {
 }
 
 /// Trusty APP UUID
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, IntoBytes, Immutable, PartialEq)]
 pub struct Uuid(trusty_sys::uuid);
 
 impl Uuid {
@@ -406,6 +406,89 @@ impl alloc::string::ToString for Uuid {
     }
 }
 
+/// Enum representing the three types of identifiers that a client can be identified with.
+#[derive(Debug, PartialEq)]
+pub enum ClientIdentifier {
+    /// The identifier of a local client TA that connects to the service
+    UUID(Uuid),
+
+    /// The identifier of a remote client TA that connects to the service by AuthMgr-BE
+    /// This introduction happens via an AIDL interface. Currently, AIDL types do not support u64.
+    /// Therefore, we use i64 here, although client sequence number cannot be negative.
+    ClientSeqNumber(i64),
+
+    /// The identifier of a remote pVM that connects to the AuthMgr-BE TA. This identifier type is
+    /// primarily used during the AuthMgr protocol. In the legitimate settings, only the AuthMgr-FE
+    /// TA in the remote pVM connects to the AuthMgr-BE TA.
+    VMID(u16),
+}
+
+impl ClientIdentifier {
+    // Type of the tag is u64 instead of u8 because arm64 normally requires 64 bit values to be
+    // 64 bit aligned, and we want to optimize for the 64 bit or multiple of 64 bit values (i.e.
+    // client_seq_num and uuid respectively) that come after the tag.
+    const UUID_TAG: u64 = 0;
+    const CLIENT_SEQ_NUM_TAG: u64 = 1;
+    const VMID_TAG: u64 = 2;
+
+    const TAG_LEN: usize = std::mem::size_of::<u64>();
+
+    const I64_LEN: usize = std::mem::size_of::<i64>();
+    const U16_LEN: usize = std::mem::size_of::<u16>();
+
+    fn get_data_as_bytes(&self) -> &[u8] {
+        match self {
+            ClientIdentifier::UUID(uuid) => uuid.as_bytes(),
+            ClientIdentifier::ClientSeqNumber(seq_num) => seq_num.as_bytes(),
+            ClientIdentifier::VMID(vm_id) => vm_id.as_bytes(),
+        }
+    }
+
+    fn with_tag_byte(tag: u64, data: &[u8]) -> Box<[u8]> {
+        let mut buf = Vec::<u8>::with_capacity(Self::TAG_LEN + data.len());
+        buf.extend_from_slice(tag.to_ne_bytes().as_slice());
+        buf.extend_from_slice(data);
+        buf.into_boxed_slice()
+    }
+
+    /// Get a pointer to the data contained in the enum variant with a tag identifying the enum
+    /// variant prepended, and the size of the data
+    pub fn as_tagged_bytes(&self) -> Box<[u8]> {
+        let data = self.get_data_as_bytes();
+        match self {
+            ClientIdentifier::UUID(_) => Self::with_tag_byte(Self::UUID_TAG, data),
+            ClientIdentifier::ClientSeqNumber(_) => {
+                Self::with_tag_byte(Self::CLIENT_SEQ_NUM_TAG, data)
+            }
+            ClientIdentifier::VMID(_) => Self::with_tag_byte(Self::VMID_TAG, data),
+        }
+    }
+
+    /// Re-construct the enum from bytes
+    pub fn from_tagged_bytes(tagged_data: &[u8]) -> Result<Self> {
+        // The length of the pointed data should be at least as long as the tag +
+        // the size of the smallest variant
+        let (tag_bytes, data) =
+            tagged_data.split_at_checked(Self::TAG_LEN).ok_or(TipcError::InvalidData)?;
+        let tag = u64::from_ne_bytes(tag_bytes.try_into().map_err(|_e| TipcError::InvalidData)?);
+        match (tag, data.len()) {
+            (Self::UUID_TAG, Uuid::UUID_BYTE_LEN) => {
+                Ok(ClientIdentifier::UUID(Uuid::try_from_bytes(data)?))
+            }
+            (Self::CLIENT_SEQ_NUM_TAG, Self::I64_LEN) => {
+                let client_seq_num =
+                    i64::read_from_bytes(data).map_err(|_e| TipcError::InvalidData)?;
+                Ok(ClientIdentifier::ClientSeqNumber(client_seq_num))
+            }
+            (Self::VMID_TAG, Self::U16_LEN) => {
+                let vm_id = u16::read_from_bytes(data).map_err(|_e| TipcError::InvalidData)?;
+                Ok(ClientIdentifier::VMID(vm_id))
+            }
+            (_, _) => Err(TipcError::InvalidData),
+        }
+    }
+}
+
 /// A service which handles IPC messages for a collection of ports.
 ///
 /// A service which implements this interface can register itself, along with a
@@ -487,6 +570,25 @@ pub trait UnbufferedService {
     /// Get the maximum possible length of any message handled by this service
     fn max_message_length(&self) -> usize {
         0
+    }
+
+    /// Called when a client connects, where the client can be identified by either of the
+    /// identifiers defined in the three variations of the `ClientIdentifier` enum.
+    ///
+    /// A default implementation is provided for backward compatibility. Any new service should
+    /// override this method and handle the three client variations.
+    fn on_new_connection(
+        &self,
+        port: &PortCfg,
+        handle: &Handle,
+        client_identifier: &ClientIdentifier,
+    ) -> Result<ConnectResult<Self::Connection>> {
+        match client_identifier {
+            ClientIdentifier::UUID(peer) => self.on_connect(port, handle, &peer),
+            _ => {
+                unimplemented!();
+            }
+        }
     }
 }
 
@@ -1680,5 +1782,77 @@ mod uuid_tests {
         expect!(bad_uuid_from_str.is_err(), "shouldn't be able to parse string");
         let bad_uuid_from_str = Uuid::new_from_string("4b4127e1-ca5c-4367-bd-b505164005b7c4");
         expect!(bad_uuid_from_str.is_err(), "shouldn't be able to parse string");
+    }
+}
+
+#[cfg(test)]
+mod client_id_tests {
+    use super::{ClientIdentifier, Uuid};
+    use alloc::slice;
+    use std::ffi::c_void;
+    use test::assert_eq;
+
+    #[test]
+    fn client_id_len() {
+        let uuid_string = "4b4127e1-ca5c-4367-bdb5-05164005b7c4".to_string();
+        let uuid = Uuid::new_from_string(&uuid_string).unwrap();
+        let uuid_client_id = ClientIdentifier::UUID(uuid);
+        let client_seq_num_client_id = ClientIdentifier::ClientSeqNumber(2);
+        let vm_id_client_id = ClientIdentifier::VMID(5);
+        assert_eq!(Uuid::UUID_BYTE_LEN, std::mem::size_of::<Uuid>());
+        assert_eq!(
+            Uuid::UUID_BYTE_LEN,
+            uuid_client_id.as_tagged_bytes().len() - ClientIdentifier::TAG_LEN
+        );
+        assert_eq!(
+            ClientIdentifier::I64_LEN,
+            client_seq_num_client_id.as_tagged_bytes().len() - ClientIdentifier::TAG_LEN
+        );
+        assert_eq!(
+            ClientIdentifier::U16_LEN,
+            vm_id_client_id.as_tagged_bytes().len() - ClientIdentifier::TAG_LEN
+        );
+    }
+
+    #[test]
+    fn client_id_to_from_ptr() {
+        let uuid_string = "4b4127e1-ca5c-4367-bdb5-05164005b7c4".to_string();
+        let uuid = Uuid::new_from_string(&uuid_string).unwrap();
+        let uuid_client_id = ClientIdentifier::UUID(uuid.clone());
+        let client_seq_num_client_id = ClientIdentifier::ClientSeqNumber(2);
+        let vm_id_client_id = ClientIdentifier::VMID(5);
+
+        // Simulate the steps taken place when ClientIdentifier is used with
+        // rpc-binder C++ interface
+        let tagged_uuid = uuid_client_id.as_tagged_bytes();
+        let len = tagged_uuid.len();
+        let tagged_uuid_ptr = Box::into_raw(tagged_uuid);
+        let tagged_uuid_void_ptr: *const c_void = tagged_uuid_ptr.cast();
+        let tagged_uuid_ptr_back: *const u8 = tagged_uuid_void_ptr.cast();
+        let tagged_uuid_data = unsafe { slice::from_raw_parts(tagged_uuid_ptr_back, len) };
+        let uuid_client_id_expected =
+            ClientIdentifier::from_tagged_bytes(tagged_uuid_data).unwrap();
+        assert_eq!(uuid_client_id, uuid_client_id_expected);
+        let _ = unsafe { Box::from_raw(tagged_uuid_ptr) };
+
+        let tagged_csn = client_seq_num_client_id.as_tagged_bytes();
+        let len = tagged_csn.len();
+        let tagged_csn_ptr = Box::into_raw(tagged_csn);
+        let tagged_csn_void_ptr: *const c_void = tagged_csn_ptr.cast();
+        let tagged_csn_ptr_back: *const u8 = tagged_csn_void_ptr.cast();
+        let tagged_csn_data = unsafe { slice::from_raw_parts(tagged_csn_ptr_back, len) };
+        let csn_expected = ClientIdentifier::from_tagged_bytes(tagged_csn_data).unwrap();
+        assert_eq!(client_seq_num_client_id, csn_expected);
+        let _ = unsafe { Box::from_raw(tagged_csn_ptr) };
+
+        let tagged_vm_id = vm_id_client_id.as_tagged_bytes();
+        let len = tagged_vm_id.len();
+        let tagged_vm_id_ptr = Box::into_raw(tagged_vm_id);
+        let tagged_vm_id_void_ptr: *const c_void = tagged_vm_id_ptr.cast();
+        let tagged_vm_id_ptr_back: *const u8 = tagged_vm_id_void_ptr.cast();
+        let tagged_vm_id_data = unsafe { slice::from_raw_parts(tagged_vm_id_ptr_back, len) };
+        let vm_id_expected = ClientIdentifier::from_tagged_bytes(tagged_vm_id_data).unwrap();
+        assert_eq!(vm_id_client_id, vm_id_expected);
+        let _ = unsafe { Box::from_raw(tagged_vm_id_ptr) };
     }
 }

@@ -28,6 +28,7 @@ MODULE_INCLUDES += \
 
 MODULE_LIBRARY_DEPS += \
 	$(call FIND_CRATE,zerocopy) \
+	$(call FIND_CRATE,zerocopy-derive) \
 
 MODULE_LIBRARY_EXPORTED_DEPS += \
 	$(call FIND_CRATE,arrayvec) \

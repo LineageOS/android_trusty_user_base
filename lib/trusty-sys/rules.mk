@@ -25,6 +25,7 @@ MODULE_LIBRARY_EXPORTED_DEPS += \
 	trusty/user/base/lib/libcompiler_builtins-rust \
 	trusty/user/base/lib/libcore-rust \
 	trusty/user/base/lib/syscall-stubs \
+	$(call FIND_CRATE,zerocopy) \
 
 MODULE_ADD_IMPLICIT_DEPS := false
 
@@ -56,6 +57,9 @@ MODULE_BINDGEN_ALLOW_VARS := \
 MODULE_BINDGEN_SRC_HEADER := $(LOCAL_DIR)/bindings.h
 
 # Derive eq and hash for uuid
-MODULE_BINDGEN_FLAGS += --with-derive-eq --with-derive-hash
+MODULE_BINDGEN_FLAGS := \
+	--with-derive-eq \
+	--with-derive-hash \
+	--with-derive-custom="uuid=zerocopy::IntoBytes, zerocopy::Immutable" \
 
 include make/library.mk

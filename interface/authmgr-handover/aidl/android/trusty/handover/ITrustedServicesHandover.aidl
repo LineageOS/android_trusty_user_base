@@ -37,5 +37,5 @@ interface ITrustedServicesHandover {
      *                           the AuthMgr authorization protocol
      * @param clientSeqNumber - the unique sequence number assigned to the client
      */
-    void handoverConnection(in ParcelFileDescriptor connectionHandle, in int clientSeqNumber);
+    void handoverConnection(in ParcelFileDescriptor connectionHandle, in long clientSeqNumber);
 }
