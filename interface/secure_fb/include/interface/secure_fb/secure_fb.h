@@ -42,7 +42,7 @@ __BEGIN_CDECLS
  * with ".", "x" and a null terminator where x is the single digit for
  * identifying instances.
  */
-#define SECURE_FB_MAX_PORT_NAME_SIZE (strlen(SECURE_FB_PORT_NAME) + 3)
+#define SECURE_FB_MAX_PORT_NAME_SIZE (sizeof(SECURE_FB_PORT_NAME ".x"))
 
 /*
  * Maximum number of framebuffers that can be allocated by one request to get
