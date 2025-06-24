@@ -25,36 +25,32 @@ MODULE_CRATE_NAME := hwbcc
 MODULE_SDK_LIB_NAME := hwbcc-rust
 
 MODULE_LIBRARY_DEPS += \
-	external/boringssl \
 	$(LIBCPPBOR_DIR) \
-	external/open-dice \
-	packages/modules/Virtualization/libs/dice/open_dice \
-	trusty/user/base/interface/hwbcc \
-	trusty/user/base/lib/trusty-std \
 	$(call FIND_CRATE,coset) \
 	$(call FIND_CRATE,log) \
 	$(call FIND_CRATE,zerocopy) \
 	$(call FIND_CRATE,num-derive) \
 	$(call FIND_CRATE,num-traits) \
+	external/boringssl \
+	external/open-dice \
+	packages/modules/Virtualization/libs/dice/open_dice \
+	trusty/user/base/interface/hwbcc \
+	trusty/user/base/lib/authgraph-rust/core \
+	trusty/user/base/lib/authgraph-rust/boringssl \
+	trusty/user/base/lib/hwbcc/common \
+	trusty/user/base/lib/trusty-std \
 	trusty/user/base/lib/tipc/rust \
 	trusty/user/base/lib/system_state/rust \
-	trusty/user/base/lib/hwbcc/common \
 
 MODULE_BINDGEN_ALLOW_TYPES := \
 	hwbcc.* \
-
-
 
 MODULE_BINDGEN_ALLOW_VARS := \
 	HWBCC.* \
 	DICE.* \
 	ED25519.* \
 
-MODULE_BINDGEN_ALLOW_FUNCTIONS := \
-	validate.* \
-
 MODULE_BINDGEN_FLAGS := \
-	--use-array-pointers-in-arguments \
 	--with-derive-custom-struct=hwbcc.*=zerocopy::IntoBytes,zerocopy::FromBytes \
 
 MODULE_BINDGEN_SRC_HEADER := $(LOCAL_DIR)/bindings.h

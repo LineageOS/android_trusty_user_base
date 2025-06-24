@@ -270,7 +270,7 @@ impl Uuid {
     // UUID_STR_SIZE is a u32, conversion to usize is correct on our targeted architectures
     // Subtracting 1 from UUID_STR_SIZE because we don't need the null terminator on the RUST
     // implementation.
-    const UUID_STR_LEN: usize = (sys::UUID_STR_SIZE as usize) - 1;
+    const UUID_STR_LEN: usize = (trusty_sys::UUID_STR_SIZE as usize) - 1;
     const HYPHEN_SKIP_POS: [usize; 4] = [8, 4, 4, 4];
     const CLOCK_SEQ_AND_NODE_NUM_BYTES: usize = 8;
 

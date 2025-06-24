@@ -102,6 +102,7 @@ private:
     static bool run_##suite_name(struct unittest* test) {     \
         return RUN_ALL_TESTS() == 0;                          \
     }                                                         \
+    __END_CDECLS                                              \
                                                               \
     int main(int argc, char** argv) {                         \
         static struct unittest test = {                       \
@@ -117,4 +118,3 @@ private:
                 new TrustyLogTestResultPrinter);              \
         return unittest_main(&tests, 1);                      \
     }                                                         \
-    __END_CDECLS

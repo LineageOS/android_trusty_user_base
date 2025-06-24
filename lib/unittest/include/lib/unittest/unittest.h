@@ -21,13 +21,26 @@
 #include <stdbool.h>
 #include <trusty_ipc.h>
 
+/*
+ * -Wmain warns against using extern "C" for main
+ * (it's not supposed to have any linkage),
+ * except when -ffreestanding is used.
+ * So only declare main with extern "C" when !__STDC_HOSTED__.
+ */
+#if !__STDC_HOSTED__ && __cplusplus
+#define EXTERN_C_MAIN extern "C"
+#else
+#define EXTERN_C_MAIN
+#endif
+
 #define PORT_TEST(suite_name, port_name_string)           \
     __BEGIN_CDECLS                                        \
     static bool run_##suite_name(struct unittest* test) { \
         return RUN_ALL_TESTS();                           \
     }                                                     \
+    __END_CDECLS                                          \
                                                           \
-    int main(void) {                                      \
+    EXTERN_C_MAIN int main(void) {                        \
         static struct unittest test = {                   \
                 .port_name = port_name_string,            \
                 .run_test = run_##suite_name,             \
@@ -35,7 +48,6 @@
         struct unittest* tests = &test;                   \
         return unittest_main(&tests, 1);                  \
     }                                                     \
-    __END_CDECLS
 
 __BEGIN_CDECLS
 

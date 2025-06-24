@@ -47,4 +47,5 @@ pub const STDERR_FILENO: u32 = 2;
 pub use sys::{
     dma_pmem, handle_t, iovec, ipc_msg, ipc_msg_info, uevent, uuid, IPC_CONNECT_ASYNC,
     IPC_CONNECT_WAIT_FOR_PORT, MMAP_FLAG_IO_HANDLE, MMAP_FLAG_PROT_READ, MMAP_FLAG_PROT_WRITE,
+    UUID_STR_SIZE,
 };
