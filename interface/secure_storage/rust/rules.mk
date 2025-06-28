@@ -15,6 +15,8 @@
 
 LOCAL_DIR := $(GET_LOCAL_DIR)
 
+MODULE_AIDL_VERSION := 1
+
 AIDL_DIR := \
 	hardware/interfaces/security/see/storage/aidl/aidl_api/android.hardware.security.see.storage/current
 
@@ -22,6 +24,7 @@ MODULE := $(LOCAL_DIR)
 
 MODULE_AIDL_FLAGS := \
 	--stability=vintf \
+	--version=$(MODULE_AIDL_VERSION) \
 
 MODULE_AIDL_LANGUAGE := rust
 
