@@ -30,6 +30,11 @@
 # MODULE_AIDL_RUST_DEPS: names of Rust AIDL crates that the current module
 #     depends on. Until we find a way to automatically infer these, users
 #     will have to specify them manually.
+# MODULE_AIDL_STABLE: whether this is a stable versioned interface. Will set a
+#     version (specified by MODULE_AIDL_VERSION below) and a hash read from the
+#     .hash file (defaults to "notfrozen").
+# MODULE_AIDL_VERSION: the version of the interface, if MODULE_AIDL_STABLE is
+#     true. Defaults to 1.
 
 # Check that there are is at most one package specified
 ifeq ($(filter $(words $(MODULE_AIDL_PACKAGE)),0 1),)
@@ -70,12 +75,37 @@ AIDL_SRCS := $(call TOBUILDDIR,$(patsubst %.aidl,%.$(AIDL_EXT),$(MODULE_AIDLS)))
 AIDL_RUST_GLUE_TOOL ?= system/tools/aidl/build/aidl_rust_glue.py
 MODULE_AIDL_INCLUDES += $(foreach dir,$(sort $(foreach src,$(MODULE_AIDLS),$(call GET_AIDL_PACKAGE_ROOT,$(src)))), -I $(patsubst %/,%,$(dir)))
 
+ifeq ($(call TOBOOL,$(MODULE_AIDL_STABLE)),true)
+MODULE_AIDL_VERSION ?= 1
+MODULE_AIDL_FLAGS += --version $(MODULE_AIDL_VERSION)
+
+# List of all the .hash files for this module, so we can trigger a rebuild
+# whenever one of them changes. For now we add all of them as dependencies to
+# all the .aidl files in order to simplify our implementation.
+# TODO: Ideally we would add each .hash file as a dependency only for the .aidl
+# files that actually require it, but that would complicate the implementation.
+AIDL_HASHES := $(wildcard $(foreach src,$(MODULE_AIDLS),$(call GET_AIDL_PACKAGE_ROOT,$(src))/.hash))
+endif
+
+# This macro covers three cases, matching what Soong does:
+# * The interface is unstable
+# 	No --hash flag is passed in at all
+# * The interface is stable but no .hash file
+# 	We use "notfrozen" as the hash
+# * The interface is stable with a .hash
+# 	Pass in --hash with the last line of the file as the hash value
+GET_AIDL_HASH_FLAG = $(if $(filter-out 0 false,$(MODULE_AIDL_STABLE)),\
+	--hash $(or \
+		$(foreach hf,$(wildcard $(call GET_AIDL_PACKAGE_ROOT,$1)/.hash),$(shell tail -1 $(hf))),\
+		notfrozen),)
+
 # TODO: support multiple, disparate packages; for AIDL interfaces with package paths,
 # the output directory for the tool should be at the root of
 # the package path. The compiler creates one subdirectory
 # per package component, e.g., com.foo.IFoo goes into com/foo/IFoo.cpp.
 # Luckily the .aidl files are also required to follow this structure,
 # so the input file is also com/foo/IFoo.aidl.
+$(AIDL_SRCS): AIDL_HASHES := $(AIDL_HASHES)
 $(AIDL_SRCS): AIDL_HEADER_DIR := $(AIDL_HEADER_DIR)
 $(AIDL_SRCS): AIDL_EXT := $(AIDL_EXT)
 $(AIDL_SRCS): AIDL_TOOL := $(AIDL_TOOL)
@@ -83,12 +113,14 @@ $(AIDL_SRCS): MODULE_AIDL_INCLUDES := $(MODULE_AIDL_INCLUDES)
 $(AIDL_SRCS): MODULE_AIDL_FLAGS := $(MODULE_AIDL_FLAGS)
 $(AIDL_SRCS): MODULE_AIDL_LANGUAGE := $(MODULE_AIDL_LANGUAGE)
 $(AIDL_SRCS): MODULE_AIDL_PACKAGE := $(MODULE_AIDL_PACKAGE)
+$(AIDL_SRCS): MODULE_AIDL_STABLE := $(MODULE_AIDL_STABLE)
 $(AIDL_SRCS): MODULE := $(MODULE)
-$(AIDL_SRCS): $(BUILDDIR)/%.$(AIDL_EXT): %.aidl $(AIDL_TOOL)
+$(AIDL_SRCS): $(BUILDDIR)/%.$(AIDL_EXT): %.aidl $(AIDL_TOOL) $(AIDL_HASHES)
 	@$(MKDIR)
 	@if [ -n "$(AIDL_HEADER_DIR)" ]; then mkdir -p $(AIDL_HEADER_DIR); fi
 	@$(call ECHO,$(MODULE),generating from AIDL,$@)
 	$(NOECHO)$(AIDL_TOOL) --lang=$(MODULE_AIDL_LANGUAGE) --structured $(MODULE_AIDL_INCLUDES) \
+		$(call GET_AIDL_HASH_FLAG,$<) \
 		$(foreach dir,$(AIDL_HEADER_DIR),-h $(dir)) -o $(call GET_AIDL_PACKAGE_ROOT,$@) $(MODULE_AIDL_FLAGS) $<
 	@$(call ECHO_DONE_SILENT,$(MODULE),generating from AIDL,$@)
 
@@ -147,7 +179,10 @@ MODULE_AIDL_FLAGS :=
 MODULE_AIDL_PACKAGE :=
 MODULE_AIDL_LANGUAGE :=
 MODULE_AIDL_RUST_DEPS :=
+MODULE_AIDL_STABLE :=
+MODULE_AIDL_VERSION :=
 AIDL_EXT :=
+AIDL_HASHES :=
 AIDL_HEADER_DIR :=
 AIDL_SRCS :=
 AIDL_ROOT_RS :=

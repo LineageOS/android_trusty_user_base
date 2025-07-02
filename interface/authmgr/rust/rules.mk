@@ -17,6 +17,7 @@ LOCAL_DIR := $(GET_LOCAL_DIR)
 ROOT_AUTHMGR_BE_AIDL_DIR = hardware/interfaces/security/see/authmgr/aidl
 AUTHMGR_BE_AIDL_API_DIR = $(ROOT_AUTHMGR_BE_AIDL_DIR)/aidl_api/android.hardware.security.see.authmgr
 
+MODULE_AIDL_STABLE := true
 MODULE_AIDL_VERSION := 1
 AUTHMGR_BE_AIDL_DIR = $(AUTHMGR_BE_AIDL_API_DIR)/$(MODULE_AIDL_VERSION)
 
@@ -31,12 +32,8 @@ MODULE_AIDL_PACKAGE := android/hardware/security/see/authmgr
 MODULE_AIDL_INCLUDES := \
 	-I $(AUTHMGR_BE_AIDL_DIR) \
 
-MODULE_AIDL_HASH := $(shell cat $(AUTHMGR_BE_AIDL_DIR)/.hash)
-
 MODULE_AIDL_FLAGS := \
     --stability=vintf \
-    --version=$(MODULE_AIDL_VERSION) \
-    --hash=$(MODULE_AIDL_HASH) \
 
 MODULE_AIDLS := \
     $(AUTHMGR_BE_AIDL_DIR)/$(MODULE_AIDL_PACKAGE)/DiceChainEntry.aidl \
