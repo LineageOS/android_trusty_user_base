@@ -15,6 +15,7 @@
 
 LOCAL_DIR := $(GET_LOCAL_DIR)
 
+MODULE_AIDL_STABLE := true
 MODULE_AIDL_VERSION := 1
 
 AIDL_DIR := \
@@ -24,7 +25,6 @@ MODULE := $(LOCAL_DIR)
 
 MODULE_AIDL_FLAGS := \
 	--stability=vintf \
-	--version=$(MODULE_AIDL_VERSION) \
 
 MODULE_AIDL_LANGUAGE := rust
 
