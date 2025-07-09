@@ -29,5 +29,6 @@ MODULE_LIBRARY_EXPORTED_DEPS += \
 	$(call FIND_CRATE,log) \
 	$(call FIND_CRATE,num-derive) \
 	$(call FIND_CRATE,num-traits) \
+	$(call FIND_CRATE,thiserror) \
 
 include make/library.mk
