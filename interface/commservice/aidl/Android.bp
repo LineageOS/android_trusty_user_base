@@ -1,0 +1,18 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+aidl_interface {
+    name: "android.trusty.commservice",
+    srcs: ["android/trusty/commservice/*.aidl"],
+    unstable: true,
+    backend: {
+        rust: {
+            enabled: true,
+            apex_available: [
+                "//apex_available:anyapex",
+                "//apex_available:platform",
+            ],
+        },
+    },
+}
