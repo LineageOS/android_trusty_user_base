@@ -331,11 +331,12 @@ static bool is_valid_tipc_srv_ops(const struct tipc_srv_ops* ops) {
 /*
  *  Add new TIPC service to handle set
  */
-int tipc_add_service(struct tipc_hset* hset,
-                     const struct tipc_port* ports,
-                     uint32_t num_ports,
-                     uint32_t max_chan_cnt,
-                     const struct tipc_srv_ops* ops) {
+int tipc_add_service_ports(struct tipc_hset* hset,
+                           const struct tipc_port* ports,
+                           uint32_t num_ports,
+                           uint32_t max_chan_cnt,
+                           const struct tipc_srv_ops* ops,
+                           struct tipc_port_ctx** ports_out) {
     int rc;
     uint32_t i;
     struct tipc_srv* srv;
@@ -410,6 +411,11 @@ int tipc_add_service(struct tipc_hset* hset,
         }
     }
     setup_mailbox(ports, num_ports);
+    if (ports_out) {
+        for (i = 0; i < num_ports; i++) {
+            ports_out[i] = &srv->ports[i];
+        }
+    }
     return 0;
 
 err_hset_add:
