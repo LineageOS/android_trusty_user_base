@@ -66,4 +66,8 @@ MODULE_BINDGEN_WRAP_STATIC_FNS := true
 MODULE_INCLUDES += \
 	$(BSSL_SRC_DIR)/include \
 
+# We treat warnings as errors so the build should not fail if the bssl sources
+# use a lint added in a rust compiler newer than the one used to build trusty.
+MODULE_RUSTFLAGS += -A unknown-lints
+
 include make/library.mk
