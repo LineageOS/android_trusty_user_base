@@ -33,6 +33,11 @@ MODULE_RUSTFLAGS += \
 	--cfg 'feature="rustc-internal-api"' \
 	--cfg 'feature="raw-entry"' \
 
+# Needed to prevent "`hashbrown::HashSet::<T, S>::with_hasher` cannot be (indirectly) exposed to stable"
+# error when compiling against internal core/std libraries.
+MODULE_RUSTFLAGS += \
+	-Z force-unstable-if-unmarked \
+
 # Suppress warnings since the crate generates warnings when being built as a
 # dependency of std. We use `--cap-lints=allow` because that's done when
 # building dependencies for rustc.
