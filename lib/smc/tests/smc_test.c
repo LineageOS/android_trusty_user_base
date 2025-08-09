@@ -52,7 +52,7 @@ TEST_F_TEARDOWN(smc) {
 #endif
 
 /* Macro to enable test cases for generic ARM64 platform only */
-#if defined(PLATFORM_GENERIC_ARM64)
+#if defined(PLATFORM_GENERIC_ARM64) && !defined(HAFNIUM)
 #define GENERIC_ARM64_PLATFORM_ONLY_TEST(name) name
 #else
 #define GENERIC_ARM64_PLATFORM_ONLY_TEST(name) DISABLED_##name

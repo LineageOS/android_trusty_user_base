@@ -29,4 +29,8 @@ MODULE_LIBRARY_DEPS += \
 	trusty/user/base/lib/smc \
 	trusty/user/base/lib/unittest \
 
+ifeq (true,$(call TOBOOL,$(HAFNIUM)))
+MODULE_DEFINES += HAFNIUM=1
+endif
+
 include make/trusted_app.mk
