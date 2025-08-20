@@ -216,7 +216,7 @@ impl HwBccOps for PvmDice {
         // have no impact because the rust hwbcc client opens a new connection for each operation.
         let dice_artifacts = self.derive_next_dice_artifacts(request_ctx)?;
 
-        Ok(retry_sign_cose_sign1_with_cdi_leaf_priv(data, aad, &dice_artifacts)?)
+        Ok(retry_sign_cose_sign1_with_cdi_leaf_priv(None, data, aad, &dice_artifacts)?)
     }
 }
 
