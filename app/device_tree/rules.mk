@@ -19,6 +19,8 @@ MODULE := $(LOCAL_DIR)
 
 MANIFEST := $(LOCAL_DIR)/manifest.json
 
+MODULE_CONSTANTS := $(LOCAL_DIR)/device_tree_consts.json
+
 MODULE_SRCS += \
 	$(LOCAL_DIR)/main.cpp \
 

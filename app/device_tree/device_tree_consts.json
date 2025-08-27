@@ -1,0 +1,11 @@
+{
+    "header": "device_tree_consts.h",
+    "constants": [
+        {
+            "name": "DEVICE_TREE_BINDER_TIPC_QUEUE_LEN",
+            "value": "3",
+            "type": "int",
+            "unsigned": true
+        }
+    ]
+}

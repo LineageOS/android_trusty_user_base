@@ -17,6 +17,7 @@
 #define TLOG_TAG "device_tree_user_service"
 #define LOCAL_TRACE 0
 
+#include <device_tree_consts.h>
 #include <lib/shared/device_tree/service/device_tree_service.h>
 #include <lib/unittest/unittest.h>
 #include <lib/vmm_obj/vmm_obj.h>
@@ -65,7 +66,7 @@ int main(void) {
     auto srv = android::RpcServerTrusty::make(
             hset, IDeviceTree::PORT().c_str(),
             std::make_shared<const android::RpcServerTrusty::PortAcl>(port_acl),
-            max_msg_size);
+            max_msg_size, DEVICE_TREE_BINDER_TIPC_QUEUE_LEN);
     if (srv == nullptr) {
         return EXIT_FAILURE;
     }
