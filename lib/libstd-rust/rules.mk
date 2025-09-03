@@ -50,6 +50,12 @@ MODULE_RUSTFLAGS += \
 	-A non-fmt-panics \
 	-A deprecated \
 
+# In rust 1.88.0, the compiler claims the functions erff128 and erfcf128 in
+# std/src/sys/cmath.rs are never used. Instead of patching the rust src, we can
+# just disable this warning
+MODULE_RUSTFLAGS += \
+	-A dead_code \
+
 MODULE_ADD_IMPLICIT_DEPS := false
 
 # Allow targets to further reduce rust footprint by removing panic information
