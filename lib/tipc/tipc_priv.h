@@ -17,16 +17,20 @@
 #pragma once
 
 #include <lk/compiler.h>
+#include <lk/list.h>
 #include <trusty_ipc.h>
 
 __BEGIN_CDECLS
 
 /**
  * struct tipc_hset - structure to wrap underlying handle set handle
- * @handle:  handle of underlying handle set
+ * @handle:     handle of underlying handle set
+ * @work_queue: queue of struct tipc_work_todo nodes to be handled. Ordered by
+ *              the todo's run_after time (head is furthest into the future).
  */
 struct tipc_hset {
     handle_t handle;
+    struct list_node work_queue;
 };
 
 /**

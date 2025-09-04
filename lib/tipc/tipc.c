@@ -13,16 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <assert.h>
-#include <lk/err_ptr.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <uapi/err.h>
 
 #define TLOG_TAG "libtipc"
-#include <trusty_log.h>
 
 #include <lib/tipc/tipc.h>
+
+#include <assert.h>
+#include <lk/err_ptr.h>
+#include <lk/macros.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <trusty/time.h>
+#include <trusty_log.h>
+#include <uapi/err.h>
 
 #include "tipc_priv.h"
 
@@ -193,6 +196,7 @@ int tipc_hset_init(struct tipc_hset* hset) {
     assert(!IS_ERR(hset) && hset);
 
     hset->handle = INVALID_IPC_HANDLE;
+    hset->work_queue = (struct list_node)LIST_INITIAL_VALUE(hset->work_queue);
 
     rc = handle_set_create();
     if (rc < 0)
@@ -282,6 +286,77 @@ int tipc_hset_remove_entry(struct tipc_hset* hset, handle_t h) {
     return handle_set_ctrl(hset->handle, HSET_DEL, &uevt);
 }
 
+#define MS_NS_FACTOR 1000000
+
+static uint32_t ms_until_deadline(int64_t deadline_at, int64_t curr_time) {
+    if (deadline_at == INT64_MAX) {
+        return INFINITE_TIME;
+    }
+    if (deadline_at <= curr_time) {
+        return 0;
+    }
+
+    int64_t to_deadline_ns = deadline_at - curr_time;
+    int64_t to_deadline_ms = DIV_ROUND_UP(to_deadline_ns, MS_NS_FACTOR);
+    if (to_deadline_ms >= (int64_t)INFINITE_TIME) {
+        /*
+         * The deadline is further away than will fit in a uint32; do a wait
+         * that's as long as possible, but not INFINITE_TIME.
+         */
+        return INFINITE_TIME - 1;
+    }
+
+    return to_deadline_ms;
+}
+
+/**
+ * calc_timeout() - Calculates the timeout to use to wait() for events
+ * @timeout_at:   the system time (ns) before tipc_handle_event() should return
+ * @next_work_at: the system time (ns) at which the next work queue item should
+ *                be handled
+ * @curr_time:    the current system time (ns)
+ *
+ * Return: the timeout to pass to wait()
+ */
+static uint32_t calc_timeout(int64_t timeout_at,
+                             int64_t next_work_at,
+                             int64_t curr_time) {
+    if (timeout_at < next_work_at) {
+        return ms_until_deadline(timeout_at, curr_time);
+    }
+    return ms_until_deadline(next_work_at, curr_time);
+}
+
+static int tipc_handle_work_queue(struct tipc_hset* hset,
+                                  int64_t current_time,
+                                  int64_t* next_work_time) {
+    *next_work_time = INT64_MAX;
+
+    /*
+     * The list is in decreasing run_after order, so pop elements from the tail
+     * as they're processed. The order is decreasing to simplify the enqueue
+     * code; see the explanation in tipc_queue_work_impl below.
+     */
+    struct tipc_work_todo* todo;
+    while ((todo = list_peek_tail_type(&hset->work_queue, struct tipc_work_todo,
+                                       node)) != NULL) {
+        if (todo->run_after > current_time) {
+            /* This todo isn't ready, so neither are any after it. */
+            *next_work_time = todo->run_after;
+            break;
+        }
+
+        list_delete(&todo->node);
+        int rc = todo->do_work(todo);
+        if (rc != NO_ERROR) {
+            TLOGE("failed to handle queued work item\n");
+            return rc;
+        }
+    }
+
+    return NO_ERROR;
+}
+
 int tipc_handle_event(struct tipc_hset* hset, uint32_t timeout) {
     int rc;
     struct uevent evt = UEVENT_INITIAL_VALUE(evt);
@@ -289,18 +364,55 @@ int tipc_handle_event(struct tipc_hset* hset, uint32_t timeout) {
     if (IS_ERR(hset) || !hset)
         return ERR_INVALID_ARGS;
 
-    /* wait for next event up to specified time */
-    rc = wait(hset->handle, &evt, timeout);
-    if (rc < 0)
+    int64_t curr_time;
+    rc = trusty_gettime(0, &curr_time);
+    if (rc != NO_ERROR) {
+        TLOGE("failed to gettime\n");
         return rc;
+    }
+    int64_t timeout_at =
+            timeout == INFINITE_TIME
+                    ? INT64_MAX
+                    : curr_time + MS_NS_FACTOR * ((int64_t)timeout);
 
-    /* get handler */
-    struct tipc_event_handler* handler = evt.cookie;
+    do {
+        int64_t next_work_time;
+        rc = tipc_handle_work_queue(hset, curr_time, &next_work_time);
+        if (rc != NO_ERROR) {
+            return rc;
+        }
 
-    /* invoke it */
-    handler->proc(&evt, handler->priv);
+        rc = trusty_gettime(0, &curr_time);
+        if (rc != NO_ERROR) {
+            TLOGE("failed to gettime\n");
+            return rc;
+        }
 
-    return 0;
+        /* wait for next event up to specified time */
+        rc = wait(hset->handle, &evt,
+                  calc_timeout(timeout_at, next_work_time, curr_time));
+        if (rc != ERR_TIMED_OUT) {
+            if (rc == NO_ERROR) {
+                /* get handler */
+                struct tipc_event_handler* handler = evt.cookie;
+
+                /* invoke it */
+                handler->proc(&evt, handler->priv);
+            }
+            /* got an event (even if it was an error), so return */
+            return rc;
+        }
+
+        rc = trusty_gettime(0, &curr_time);
+        if (rc != NO_ERROR) {
+            TLOGE("failed to gettime\n");
+            return rc;
+        }
+
+    } while (curr_time < timeout_at);
+
+    /* Waited full duration w/o an event; give up. */
+    return ERR_TIMED_OUT;
 }
 
 int tipc_run_event_loop(struct tipc_hset* hset) {
@@ -310,5 +422,56 @@ int tipc_run_event_loop(struct tipc_hset* hset) {
         rc = tipc_handle_event(hset, INFINITE_TIME);
     } while (rc == 0);
 
+    assert(rc != ERR_TIMED_OUT);
     return rc;
+}
+
+void tipc_queue_work_delayed_abs(struct tipc_hset* hset,
+                                 struct tipc_work_todo* todo,
+                                 int64_t run_after_ns) {
+    todo->run_after = run_after_ns;
+
+    /*
+     * Put work_queue in descending order because we expect most of the todos
+     * callers add to have a run_after value that's greater than or equal to the
+     * median run_after already in the queue, so we want to iterate though the
+     * largest values first. There isn't a helper macro that iterates through
+     * the list from tail to head, so we have to use descending order and pop
+     * elements from the tail as we run them.
+     *
+     * We want to start iterating with the largest run_after values for
+     * performace reasons. Callers adding multiple todos with the same run_after
+     * (like if they calculate current_time + delay once and use it for each
+     * todo) or increasing run_after values (like if they recalculate
+     * current_time + delay for each todo) will be O(1) this way. Decreasing
+     * run_after values (which would be O(N) enqueues) seem less likely.
+     */
+    struct tipc_work_todo* existing;
+    list_for_every_entry(&hset->work_queue, existing, struct tipc_work_todo,
+                         node) {
+        if (todo->run_after >= existing->run_after) {
+            list_add_before(&existing->node, &todo->node);
+            return;
+        }
+    }
+    list_add_tail(&hset->work_queue, &todo->node);
+}
+
+void tipc_queue_work(struct tipc_hset* hset, struct tipc_work_todo* todo) {
+    tipc_queue_work_delayed_abs(hset, todo, 0);
+}
+
+void tipc_queue_work_delayed_rel(struct tipc_hset* hset,
+                                 struct tipc_work_todo* todo,
+                                 int64_t ns_from_now) {
+    int64_t current_time;
+    int rc = trusty_gettime(0, &current_time);
+    /* trusty_gettime only fails when passed invalid args */
+    assert(rc == NO_ERROR);
+
+    tipc_queue_work_delayed_abs(hset, todo, current_time + ns_from_now);
+}
+
+void tipc_cancel_work(struct tipc_work_todo* todo) {
+    list_delete(&todo->node);
 }

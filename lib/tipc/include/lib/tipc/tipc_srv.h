@@ -18,8 +18,9 @@
 
 #include <lib/tipc/tipc.h>
 #include <lk/compiler.h>
-#include <lk/list.h>
 #include <stddef.h>
+#include <stdint.h>
+#include <uapi/trusty_uuid.h>
 
 __BEGIN_CDECLS
 

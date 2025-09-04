@@ -79,7 +79,7 @@ pub fn wait_for_interface<T: FromIBinder + ?Sized>(name: &str) -> Result<Strong<
     // an intermediary for resolving connections to the requested service. It was originally
     // introduced to allow for authentication and authorization of the caller before handing
     // back a handle to the requested service.
-    log::trace!("Attempting to get ITrustyAccessor at port {:?}", port_name);
+    log::trace!("Attempting to get ITrustyAccessor at port {port_name:?}");
     let mut session = get_new_rpc_session();
     match setup_trusty_client(&session, &c_port_name, control_byte) {
         Ok(accessor) => {
@@ -109,7 +109,7 @@ pub fn wait_for_interface<T: FromIBinder + ?Sized>(name: &str) -> Result<Strong<
     }
 
     // The binder on the other end was likely not an accessor, try a direct connection.
-    log::trace!("Attempting to get direct interface at port {:?}", port_name);
+    log::trace!("Attempting to get direct interface at port {port_name:?}");
     session = get_new_rpc_session();
     setup_trusty_client(&session, &c_port_name, control_byte).map_err(|e| {
         log::error!("failed to setup binder on {:?} {:?}", &port_name, e);
@@ -128,28 +128,21 @@ fn fd_from_accessor(
     // Before we attempt to add a connection, ensure that we've obtained an Accessor
     // for the correct service name.
     let accessor_instance_name = accessor.getInstanceName().map_err(|status_code| {
-        log::error!(
-            "Failed to resolve ITrustyAccessor instance name at {:?} {}",
-            name,
-            status_code
-        );
+        log::error!("Failed to resolve ITrustyAccessor instance name at {name:?} {status_code}");
 
         StatusCode::NAME_NOT_FOUND
     })?;
 
     if accessor_instance_name != name {
         log::error!(
-            "Provided service name {:?} does not match the instance name resolved from \
-        ITrustyAccessor {}",
-            name,
-            accessor_instance_name
+            "Provided service name {name:?} does not match the instance name resolved from ITrustyAccessor {accessor_instance_name}"
         );
 
         return Err(StatusCode::NAME_NOT_FOUND);
     }
 
     let service_fd = accessor.addConnection().map_err(|status| {
-        log::error!("Failed to retrieve FD from accessor for {:?} {}", name, status);
+        log::error!("Failed to retrieve FD from accessor for {name:?} {status}");
 
         match status.exception_code() {
             ExceptionCode::SERVICE_SPECIFIC => match status.service_specific_error() {
@@ -185,14 +178,14 @@ fn setup_trusty_client<T: FromIBinder + ?Sized>(
     control_byte: Option<u8>,
 ) -> Result<Strong<T>, Error> {
     let h = tipc::Handle::connect(port).map_err(|e| {
-        log::error!("Failed to connect to port {:?} {:?}", port, e);
+        log::error!("Failed to connect to port {port:?} {e:?}");
         Error::ConnectionFailed
     })?;
 
     if let Some(c) = control_byte {
         log::trace!("sending control byte on port {port:?}");
         h.send(&c).map_err(|e| {
-            log::error!("Failed to send control byte on port {:?} {:?}", port, e);
+            log::error!("Failed to send control byte on port {port:?} {e:?}");
             Error::ConnectionFailed
         })?;
     }
@@ -201,7 +194,7 @@ fn setup_trusty_client<T: FromIBinder + ?Sized>(
     let fd = h.as_raw_fd();
     core::mem::forget(h);
     session.setup_preconnected_client(|| Some(fd)).map_err(|status_code| {
-        log::debug!("failed to setup preconnected client on port {:?} {}", port, status_code);
+        log::debug!("failed to setup preconnected client on port {port:?} {status_code}");
 
         Error::BinderSetupFailed(status_code)
     })
@@ -280,9 +273,7 @@ fn is_valid_port_len(port_len: usize) -> bool {
 
 fn port_size_err(service_name: &str) -> StatusCode {
     log::error!(
-        "Cannot create port name from {:?} within trusty port length limit of {}",
-        service_name,
-        MAX_TIPC_PORT_NAME_LEN
+        "Cannot create port name from {service_name:?} within trusty port length limit of {MAX_TIPC_PORT_NAME_LEN}"
     );
 
     StatusCode::BAD_VALUE
