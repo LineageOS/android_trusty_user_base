@@ -91,6 +91,8 @@ impl From<c_long> for Error {
         if rc > i32::MAX as c_long || rc < i32::MIN as c_long {
             return Generic;
         }
+
+        #[allow(clippy::unnecessary_cast, reason = "c_long can be i32 or i64")]
         match rc as i32 {
             rc if rc == NO_ERROR as i32 => NoError,
             ERR_GENERIC => Generic,

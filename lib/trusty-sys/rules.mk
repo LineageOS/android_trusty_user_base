@@ -25,6 +25,7 @@ MODULE_LIBRARY_EXPORTED_DEPS += \
 	trusty/user/base/lib/libcompiler_builtins-rust \
 	trusty/user/base/lib/libcore-rust \
 	trusty/user/base/lib/syscall-stubs \
+	trusty/user/base/lib/trusty-types-sys \
 	$(call FIND_CRATE,zerocopy) \
 
 MODULE_ADD_IMPLICIT_DEPS := false
@@ -47,8 +48,6 @@ MODULE_BINDGEN_ALLOW_TYPES := \
 	ipc_msg_info \
 
 MODULE_BINDGEN_ALLOW_VARS := \
-	NO_ERROR \
-	ERR_.* \
 	IPC_CONNECT_.* \
 	MMAP_FLAG_PROT_READ \
 	MMAP_FLAG_PROT_WRITE \

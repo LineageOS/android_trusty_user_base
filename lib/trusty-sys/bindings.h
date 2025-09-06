@@ -18,5 +18,4 @@
 
 #include <trusty/uuid.h>
 #include <trusty_ipc.h>
-#include <uapi/err.h>
 #include <uapi/mm.h>

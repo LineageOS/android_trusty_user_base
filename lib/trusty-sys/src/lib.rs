@@ -22,13 +22,11 @@
 #![no_std]
 #![allow(non_camel_case_types)]
 
-mod err;
+pub use trusty_types_sys::{err, types};
+
 mod syscalls;
-mod types;
 
 mod sys {
-    use crate as trusty_sys;
-
     include!(env!("BINDGEN_INC_FILE"));
 
     impl uevent {

@@ -48,7 +48,7 @@ endif
 ifeq ($(MODULE_IS_KERNEL),true)
 MODULE_BINDGEN_FLAGS += --use-core --ctypes-prefix 'core::ffi'
 else
-MODULE_BINDGEN_FLAGS += --use-core --ctypes-prefix 'trusty_sys'
+MODULE_BINDGEN_FLAGS += --use-core --ctypes-prefix 'trusty_types_sys::types'
 endif
 
 ifneq ($(strip $(MODULE_BINDGEN_CTYPES_PREFIX)),)

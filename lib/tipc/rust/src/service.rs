@@ -406,7 +406,19 @@ impl alloc::string::ToString for Uuid {
     }
 }
 
-/// Enum representing the three types of identifiers that a client can be identified with.
+/// Enum identifying a VM client of a Trusty service.
+///
+/// Non-exhaustive because we want to have to ability to add more kinds in the future.
+#[non_exhaustive]
+#[derive(Debug, PartialEq)]
+pub enum VmIdentifier {
+    Ffa(u16),
+}
+
+/// Enum identifying the client of a Trusty service.
+///
+/// Non-exhaustive because we want to have to ability to add more kinds in the future.
+#[non_exhaustive]
 #[derive(Debug, PartialEq)]
 pub enum ClientIdentifier {
     /// The identifier of a local client TA that connects to the service
@@ -420,7 +432,7 @@ pub enum ClientIdentifier {
     /// The identifier of a remote pVM that connects to the AuthMgr-BE TA. This identifier type is
     /// primarily used during the AuthMgr protocol. In the legitimate settings, only the AuthMgr-FE
     /// TA in the remote pVM connects to the AuthMgr-BE TA.
-    VMID(u16),
+    VMID(VmIdentifier),
 }
 
 impl ClientIdentifier {
@@ -440,7 +452,7 @@ impl ClientIdentifier {
         match self {
             ClientIdentifier::UUID(uuid) => uuid.as_bytes(),
             ClientIdentifier::ClientSeqNumber(seq_num) => seq_num.as_bytes(),
-            ClientIdentifier::VMID(vm_id) => vm_id.as_bytes(),
+            ClientIdentifier::VMID(VmIdentifier::Ffa(vm_id)) => vm_id.as_bytes(),
         }
     }
 
@@ -482,7 +494,7 @@ impl ClientIdentifier {
             }
             (Self::VMID_TAG, Self::U16_LEN) => {
                 let vm_id = u16::read_from_bytes(data).map_err(|_e| TipcError::InvalidData)?;
-                Ok(ClientIdentifier::VMID(vm_id))
+                Ok(ClientIdentifier::VMID(VmIdentifier::Ffa(vm_id)))
             }
             (_, _) => Err(TipcError::InvalidData),
         }
@@ -1787,7 +1799,7 @@ mod uuid_tests {
 
 #[cfg(test)]
 mod client_id_tests {
-    use super::{ClientIdentifier, Uuid};
+    use super::{ClientIdentifier, Uuid, VmIdentifier};
     use alloc::slice;
     use std::ffi::c_void;
     use test::assert_eq;
@@ -1798,7 +1810,7 @@ mod client_id_tests {
         let uuid = Uuid::new_from_string(&uuid_string).unwrap();
         let uuid_client_id = ClientIdentifier::UUID(uuid);
         let client_seq_num_client_id = ClientIdentifier::ClientSeqNumber(2);
-        let vm_id_client_id = ClientIdentifier::VMID(5);
+        let vm_id_client_id = ClientIdentifier::VMID(VmIdentifier::Ffa(5));
         assert_eq!(Uuid::UUID_BYTE_LEN, std::mem::size_of::<Uuid>());
         assert_eq!(
             Uuid::UUID_BYTE_LEN,
@@ -1820,7 +1832,7 @@ mod client_id_tests {
         let uuid = Uuid::new_from_string(&uuid_string).unwrap();
         let uuid_client_id = ClientIdentifier::UUID(uuid.clone());
         let client_seq_num_client_id = ClientIdentifier::ClientSeqNumber(2);
-        let vm_id_client_id = ClientIdentifier::VMID(5);
+        let vm_id_client_id = ClientIdentifier::VMID(VmIdentifier::Ffa(5));
 
         // Simulate the steps taken place when ClientIdentifier is used with
         // rpc-binder C++ interface
