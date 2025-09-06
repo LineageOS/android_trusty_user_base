@@ -532,6 +532,39 @@ class TestManifest(unittest.TestCase):
             mem_map_json_data, manifest_compiler.MEM_MAP, constants, log)
         self.assertTrue(log.error_occurred())
 
+    def test_validate_auxvals_1(self):
+        """Test with valid instance ID auxval"""
+        constants = {}
+        auxvals_json_data = [manifest_compiler.AUXVALS_INSTANCE_ID]
+
+        log = manifest_compiler.Log()
+        auxvals = manifest_compiler.parse_auxvals(
+            auxvals_json_data, constants, log)
+        self.assertFalse(log.error_occurred())
+        self.assertEqual(auxvals,
+                         [manifest_compiler.TRUSTY_AT_INSTANCE_ID_PTR])
+
+    def test_validate_auxvals_2(self):
+        """Test with empty auxval"""
+        constants = {}
+        auxvals_json_data = []
+
+        log = manifest_compiler.Log()
+        auxvals = manifest_compiler.parse_auxvals(
+            auxvals_json_data, constants, log)
+        self.assertFalse(log.error_occurred())
+        self.assertEqual(auxvals, [])
+
+    def test_validate_auxvals_3(self):
+        """Test with unknown auxval"""
+        constants = {}
+        auxvals_json_data = ["FOO"]
+
+        log = manifest_compiler.Log()
+        auxvals = manifest_compiler.parse_auxvals(
+            auxvals_json_data, constants, log)
+        self.assertTrue(log.error_occurred())
+
     def test_validate_mgmt_flags_1(self):
         """Test with a valid management flags"""
         constants = {}
@@ -1690,6 +1723,7 @@ class TestManifest(unittest.TestCase):
         - version
         - min_version
         - flags
+        - auxvals
 
         Pack the manifest config data and unpack it and
         verify it with the expected values
@@ -1710,6 +1744,9 @@ class TestManifest(unittest.TestCase):
                 manifest_compiler.MGMT_FLAG_DEFERRED_START: False,
                 manifest_compiler.MGMT_FLAG_NON_CRITICAL_APP: False
             },
+            manifest_compiler.AUXVALS: [
+                manifest_compiler.AUXVALS_INSTANCE_ID,
+            ],
             manifest_compiler.APPLOADER_FLAGS: {
                 manifest_compiler.APPLOADER_FLAGS_REQUIRES_ENCRYPTION: False,
             }

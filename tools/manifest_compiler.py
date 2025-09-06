@@ -75,6 +75,9 @@ USAGE:
             "deferred_start": false,
             "non_critical_app": false
         },
+        "auxvals": [
+            "instance_id"
+        ],
         "start_ports": [
             {
                 "name": "LOADABLE_START_PORT",
@@ -141,6 +144,8 @@ MGMT_FLAGS = "mgmt_flags"
 MGMT_FLAG_RESTART_ON_EXIT = "restart_on_exit"
 MGMT_FLAG_DEFERRED_START = "deferred_start"
 MGMT_FLAG_NON_CRITICAL_APP = "non_critical_app"
+AUXVALS = "auxvals"
+AUXVALS_INSTANCE_ID = "instance_id"
 START_PORTS = "start_ports"
 START_PORT_FLAGS = "flags"
 START_PORT_NAME = "name"
@@ -180,6 +185,7 @@ TRUSTY_APP_CONFIG_KEY_MIN_SHADOW_STACK_SIZE = 8
 TRUSTY_APP_CONFIG_KEY_APPLOADER_FLAGS = 9
 TRUSTY_APP_CONFIG_KEY_PRIORITY = 10
 TRUSTY_APP_CONFIG_KEY_MIN_VERSION = 11
+TRUSTY_APP_CONFIG_KEY_AUXVAL = 12
 
 # MEM_MAP ARCH_MMU_FLAGS
 # These values need to be kept in sync with $LKROOT/include/arch/mmu.h
@@ -195,6 +201,9 @@ TRUSTY_APP_MGMT_FLAGS_NONE = 0
 TRUSTY_APP_MGMT_FLAGS_RESTART_ON_EXIT = 1 << 0
 TRUSTY_APP_MGMT_FLAGS_DEFERRED_START = 1 << 1
 TRUSTY_APP_MGMT_FLAGS_NON_CRITICAL_APP = 1 << 2
+
+# AUXVALS
+TRUSTY_AT_INSTANCE_ID_PTR = 1000001
 
 # APPLOADER FLAGS
 # These values need to be kept in sync with lib/app_manifest/app_manifest.h
@@ -276,6 +285,7 @@ class Manifest(object):
             version,
             min_version,
             apploader_flags,
+            auxvals,
     ):
         self.uuid = uuid
         self.app_name = app_name
@@ -290,6 +300,7 @@ class Manifest(object):
         self.version = version
         self.min_version = min_version
         self.apploader_flags = apploader_flags
+        self.auxvals = auxvals
 
 
 class Log(object):
@@ -620,6 +631,20 @@ def parse_mgmt_flags(flags, constants, log):
     return mgmt_flags
 
 
+def parse_auxvals(lst, constants, log):
+    if lst is None:
+        return None
+
+    auxvals = []
+    for x in lst:
+        if x == AUXVALS_INSTANCE_ID:
+            auxvals.append(TRUSTY_AT_INSTANCE_ID_PTR)
+        else:
+            log.error(f"Unknown auxval entry in manifest: {x}")
+
+    return auxvals
+
+
 def parse_apploader_flags(flags, constants, log):
     if flags is None:
         return None
@@ -715,6 +740,11 @@ def parse_manifest_config(manifest_dict, constants, default_app_name, log):
                      MGMT_FLAG_NON_CRITICAL_APP: False}),
         constants, log)
 
+    # AUXVALS
+    auxvals = parse_auxvals(
+        get_list(manifest_dict, AUXVALS, log, optional=True),
+        constants, log)
+
     # START_PORTS
     start_ports = parse_app_start_ports(
         get_list(manifest_dict, START_PORTS, log,
@@ -763,7 +793,8 @@ def parse_manifest_config(manifest_dict, constants, default_app_name, log):
 
     return Manifest(uuid, app_name, min_heap, min_stack, min_shadow_stack,
                     mem_io_maps, mgmt_flags, start_ports, pinned_cpu,
-                    priority, version, min_version, apploader_flags)
+                    priority, version, min_version, apploader_flags,
+                    auxvals)
 
 
 def swap_uuid_bytes(uuid):
@@ -850,6 +881,7 @@ def pack_manifest_data(manifest):
     #        TRUSTY_APP_CONFIG_KEY_MIN_VERSION, min_version
     #        TRUSTY_APP_CONFIG_KEY_MIN_SHADOW_STACK_SIZE, min_shadow_stack,
     #        TRUSTY_APP_CONFIG_KEY_APPLOADER_FLAGS, apploader_flags,
+    #        TRUSTY_APP_CONFIG_KEY_AUXVAL, auxval,
     #      }
     out = io.BytesIO()
 
@@ -915,6 +947,12 @@ def pack_manifest_data(manifest):
         out.write(struct.pack("II",
                               TRUSTY_APP_CONFIG_KEY_APPLOADER_FLAGS,
                               pack_apploader_flags(manifest.apploader_flags)))
+
+    if manifest.auxvals is not None:
+        for auxval in manifest.auxvals:
+            out.write(struct.pack("II",
+                                  TRUSTY_APP_CONFIG_KEY_AUXVAL,
+                                  auxval))
 
     return out.getvalue()
 
@@ -1075,6 +1113,14 @@ def unpack_binary_manifest_to_data(packed_data):
             if flag & TRUSTY_APP_APPLOADER_FLAGS_REQUIRES_ENCRYPTION:
                 apploader_flag[APPLOADER_FLAGS_REQUIRES_ENCRYPTION] = True
             manifest[APPLOADER_FLAGS] = apploader_flag
+        elif tag == TRUSTY_APP_CONFIG_KEY_AUXVAL:
+            (auxval,), packed_data = struct.unpack(
+                "I", packed_data[:4]), packed_data[4:]
+            if auxval == TRUSTY_AT_INSTANCE_ID_PTR:
+                auxval_name = AUXVALS_INSTANCE_ID
+            else:
+                raise Exception(f"Unknown auxval: {auxval}")
+            manifest.setdefault(AUXVALS, []).append(auxval_name)
         else:
             raise Exception(f"Unknown tag: {tag}")
 
