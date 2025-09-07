@@ -22,6 +22,7 @@ MODULE_SRCS := $(LOCAL_DIR)/src/lib.rs
 MODULE_CRATE_NAME := trusty_sys
 
 MODULE_LIBRARY_EXPORTED_DEPS += \
+	trusty/kernel/lib/shared/peer_id \
 	trusty/user/base/lib/libcompiler_builtins-rust \
 	trusty/user/base/lib/libcore-rust \
 	trusty/user/base/lib/syscall-stubs \
@@ -41,7 +42,6 @@ MODULE_SRCDEPS += $(SYSCALL_RS)
 MODULE_BINDGEN_ALLOW_TYPES := \
 	iovec \
 	dma_pmem \
-	uuid \
 	handle_t \
 	uevent \
 	ipc_msg \
@@ -52,14 +52,11 @@ MODULE_BINDGEN_ALLOW_VARS := \
 	MMAP_FLAG_PROT_READ \
 	MMAP_FLAG_PROT_WRITE \
 	MMAP_FLAG_IO_HANDLE \
-	UUID_STR_SIZE \
 
 MODULE_BINDGEN_SRC_HEADER := $(LOCAL_DIR)/bindings.h
 
-# Derive eq and hash for uuid
 MODULE_BINDGEN_FLAGS := \
 	--with-derive-eq \
 	--with-derive-hash \
-	--with-derive-custom="uuid=zerocopy::IntoBytes, zerocopy::Immutable" \
 
 include make/library.mk

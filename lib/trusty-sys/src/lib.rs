@@ -22,6 +22,7 @@
 #![no_std]
 #![allow(non_camel_case_types)]
 
+pub use peer_id::*;
 pub use trusty_types_sys::{err, types};
 
 mod syscalls;
@@ -43,7 +44,6 @@ pub const STDOUT_FILENO: u32 = 1;
 pub const STDERR_FILENO: u32 = 2;
 
 pub use sys::{
-    dma_pmem, handle_t, iovec, ipc_msg, ipc_msg_info, uevent, uuid, IPC_CONNECT_ASYNC,
+    dma_pmem, handle_t, iovec, ipc_msg, ipc_msg_info, uevent, IPC_CONNECT_ASYNC,
     IPC_CONNECT_WAIT_FOR_PORT, MMAP_FLAG_IO_HANDLE, MMAP_FLAG_PROT_READ, MMAP_FLAG_PROT_WRITE,
-    UUID_STR_SIZE,
 };

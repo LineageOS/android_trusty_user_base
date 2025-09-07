@@ -16,6 +16,7 @@ mod inc {
     use crate::types::c_uint8_t as uint8_t;
     use crate::types::c_ulong as ulong;
     use crate::types::c_void as void;
+    use crate::uuid;
 
     include!(env!("SYSCALL_INC_FILE"));
 }

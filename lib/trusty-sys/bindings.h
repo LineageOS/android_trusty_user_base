@@ -16,6 +16,5 @@
 
 /* Aggregates headers to generate Rust bindings for the trusty-sys crate */
 
-#include <trusty/uuid.h>
 #include <trusty_ipc.h>
 #include <uapi/mm.h>
