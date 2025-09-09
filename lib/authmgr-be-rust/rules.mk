@@ -25,6 +25,7 @@ MODULE_LIBRARY_EXPORTED_DEPS += \
 	trusty/user/base/lib/authgraph-rust/core \
 	trusty/user/base/lib/authmgr-common-rust \
 	$(call FIND_CRATE,coset) \
+	$(call FIND_CRATE,hex) \
 	$(call FIND_CRATE,log) \
 
 include make/library.mk
