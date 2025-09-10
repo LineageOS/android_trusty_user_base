@@ -336,7 +336,7 @@ void tipc_queue_work_delayed_abs(struct tipc_hset* hset,
                                  int64_t run_after_ns);
 
 /**
- * tipc_queue_work() - cancels queued work so it will never be run
+ * tipc_cancel_work() - cancels queued work so it will never be run
  * @todo: the work to be cancelled
  *
  * Note: Does not free *@todo; caller is responsible for managing *@todo's

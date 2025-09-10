@@ -565,6 +565,22 @@ class TestManifest(unittest.TestCase):
             auxvals_json_data, constants, log)
         self.assertTrue(log.error_occurred())
 
+    def test_validate_auxvals_4(self):
+        """Test with valid instance ID and peer IDs auxval"""
+        constants = {}
+        auxvals_json_data = [
+            manifest_compiler.AUXVALS_INSTANCE_ID,
+            manifest_compiler.AUXVALS_SELF_PEER_IDS,
+        ]
+
+        log = manifest_compiler.Log()
+        auxvals = manifest_compiler.parse_auxvals(
+            auxvals_json_data, constants, log)
+        self.assertFalse(log.error_occurred())
+        self.assertEqual(auxvals,
+                         [manifest_compiler.TRUSTY_AT_INSTANCE_ID_PTR,
+                          manifest_compiler.TRUSTY_AT_SELF_PEER_IDS])
+
     def test_validate_mgmt_flags_1(self):
         """Test with a valid management flags"""
         constants = {}
@@ -1746,6 +1762,7 @@ class TestManifest(unittest.TestCase):
             },
             manifest_compiler.AUXVALS: [
                 manifest_compiler.AUXVALS_INSTANCE_ID,
+                manifest_compiler.AUXVALS_SELF_PEER_IDS,
             ],
             manifest_compiler.APPLOADER_FLAGS: {
                 manifest_compiler.APPLOADER_FLAGS_REQUIRES_ENCRYPTION: False,

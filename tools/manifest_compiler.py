@@ -76,7 +76,8 @@ USAGE:
             "non_critical_app": false
         },
         "auxvals": [
-            "instance_id"
+            "instance_id",
+            "self_peer_ids"
         ],
         "start_ports": [
             {
@@ -146,6 +147,7 @@ MGMT_FLAG_DEFERRED_START = "deferred_start"
 MGMT_FLAG_NON_CRITICAL_APP = "non_critical_app"
 AUXVALS = "auxvals"
 AUXVALS_INSTANCE_ID = "instance_id"
+AUXVALS_SELF_PEER_IDS = "self_peer_ids"
 START_PORTS = "start_ports"
 START_PORT_FLAGS = "flags"
 START_PORT_NAME = "name"
@@ -203,7 +205,11 @@ TRUSTY_APP_MGMT_FLAGS_DEFERRED_START = 1 << 1
 TRUSTY_APP_MGMT_FLAGS_NON_CRITICAL_APP = 1 << 2
 
 # AUXVALS
+# These values need to be kept in sync with external/trusty/musl/include/elf.h
+# and also their internal kernel definitions in
+# trusty/kernel/lib/trusty/trusty_app.c
 TRUSTY_AT_INSTANCE_ID_PTR = 1000001
+TRUSTY_AT_SELF_PEER_IDS = 1000003
 
 # APPLOADER FLAGS
 # These values need to be kept in sync with lib/app_manifest/app_manifest.h
@@ -639,6 +645,8 @@ def parse_auxvals(lst, constants, log):
     for x in lst:
         if x == AUXVALS_INSTANCE_ID:
             auxvals.append(TRUSTY_AT_INSTANCE_ID_PTR)
+        elif x == AUXVALS_SELF_PEER_IDS:
+            auxvals.append(TRUSTY_AT_SELF_PEER_IDS)
         else:
             log.error(f"Unknown auxval entry in manifest: {x}")
 
@@ -1118,6 +1126,8 @@ def unpack_binary_manifest_to_data(packed_data):
                 "I", packed_data[:4]), packed_data[4:]
             if auxval == TRUSTY_AT_INSTANCE_ID_PTR:
                 auxval_name = AUXVALS_INSTANCE_ID
+            elif auxval == TRUSTY_AT_SELF_PEER_IDS:
+                auxval_name = AUXVALS_SELF_PEER_IDS
             else:
                 raise Exception(f"Unknown auxval: {auxval}")
             manifest.setdefault(AUXVALS, []).append(auxval_name)
