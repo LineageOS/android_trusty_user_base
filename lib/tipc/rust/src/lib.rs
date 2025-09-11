@@ -30,6 +30,8 @@
 #[allow(non_camel_case_types)]
 #[allow(unused)]
 mod sys {
+    use peer_id::trusty_peer_id_kind_t;
+
     include!(env!("BINDGEN_INC_FILE"));
 }
 
@@ -41,10 +43,28 @@ mod service;
 
 pub use err::{ConnectResult, MessageResult, Result, TipcError};
 pub use handle::{Handle, MMapFlags, UnsafeSharedBuf, MAX_MSG_HANDLES};
+pub use peer_id::{Uuid, UuidFromBytesError, UuidFromStrError};
 pub use serialization::{Deserialize, Serialize, Serializer};
 pub use service::{
-    ClientIdentifier, Dispatcher, Manager, PortCfg, Service, UnbufferedService, Uuid,
+    ClientIdentifier, ClientIdentifierError, Dispatcher, Manager, PortCfg, Service,
+    UnbufferedService,
 };
+
+// Safety:
+//   * Prefix - Guaranteed by C implementation/bindgen.
+//   * No Padding - Guaranteed by C implementation.
+//   * len Impl - Self has statically know size.
+//   * Distinct KIND - Guaranteed by C implementation.
+//   * KIND Range - Guaranteed by C implementation.
+unsafe impl peer_id::TrustyPeerId for sys::trusty_peer_id_sequence_id {
+    const KIND: peer_id::trusty_peer_id_kind_t = sys::TRUSTY_PEER_ID_KIND_SEQUENCE_ID;
+
+    // # Safety
+    //   Always safe.
+    unsafe fn len(_data: *const u8) -> usize {
+        core::mem::size_of::<Self>()
+    }
+}
 
 #[cfg(test)]
 mod test {

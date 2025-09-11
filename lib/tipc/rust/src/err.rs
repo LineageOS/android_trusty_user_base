@@ -129,3 +129,15 @@ impl From<AllocError> for TipcError {
         TipcError::AllocError
     }
 }
+
+impl From<peer_id::UuidFromBytesError> for TipcError {
+    fn from(_err: peer_id::UuidFromBytesError) -> Self {
+        TipcError::OutOfBounds
+    }
+}
+
+impl From<peer_id::UuidFromStrError> for TipcError {
+    fn from(_err: peer_id::UuidFromStrError) -> Self {
+        TipcError::InvalidData
+    }
+}

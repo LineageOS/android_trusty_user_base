@@ -43,7 +43,7 @@ impl<S: UnbufferedService> ToConnect<S> {
         Self { handle, service, port, client_seq_num }
     }
 
-    /// Handover connection
+    /// Complete the deferred work, i.e. complete the new handover connection
     pub fn do_connect(&self) -> Result<ConnectResult<S::Connection>> {
         self.service.on_new_connection(
             &self.port,

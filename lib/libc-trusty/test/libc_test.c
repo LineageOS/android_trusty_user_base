@@ -26,6 +26,7 @@
 #include <trusty/string.h>
 #include <trusty/uuid.h>
 #include <uapi/err.h>
+#include <uapi/trusty_peer_id.h>
 
 #if defined(TRUSTY_USERSPACE)
 #include <sys/auxv.h>
@@ -311,6 +312,55 @@ TEST_F(libc, stack_cookies) {
     uint64_t* p = (uint64_t*)getauxval(AT_RANDOM);
     ASSERT_NE(0, p);
     ASSERT_EQ(true, 0 != *p || 0 != *(p + 1));
+
+test_abort:;
+}
+
+TEST_F(libc, self_peer_ids) {
+    unsigned long auxval_random;
+    unsigned long auxval;
+    struct trusty_peer_id_sized* peer_id;
+
+    CLEAR_ERRNO();
+    auxval_random = getauxval(AT_RANDOM);
+    CHECK_ERRNO(0);
+    auxval = getauxval(TRUSTY_AT_SELF_PEER_IDS);
+    CHECK_ERRNO(0);
+    ASSERT_NE(0, auxval);
+
+    while (auxval < auxval_random) {
+        uint64_t size = *(uint64_t*)auxval;
+        if (!size) {
+            /* NULL terminator */
+            break;
+        }
+        ASSERT_GE(size, sizeof(struct trusty_peer_id_sized));
+
+        peer_id = (struct trusty_peer_id_sized*)auxval;
+        ASSERT_EQ(peer_id->size, size);
+        switch (peer_id->peer_id.kind) {
+        case TRUSTY_PEER_ID_KIND_UUID:
+            ASSERT_EQ(sizeof(struct trusty_peer_id_uuid), size);
+            break;
+
+        case TRUSTY_PEER_ID_KIND_VMID_FFA:
+            ASSERT_EQ(sizeof(struct trusty_peer_id_vmid_ffa), size);
+            break;
+
+        default:
+            /* Not much to do here, any kind might become valid in the future */
+            break;
+        }
+
+        ASSERT_EQ(false, __builtin_add_overflow(auxval, sizeof(size), &auxval));
+        ASSERT_EQ(false, __builtin_add_overflow(auxval, size, &auxval));
+    }
+    /*
+     * The RNG data from AT_RANDOM should be after the peer IDs.
+     * Check that we didn't bump into that data, because that
+     * would mean the kernel didn't insert the terminator.
+     */
+    ASSERT_LT(auxval, auxval_random);
 
 test_abort:;
 }

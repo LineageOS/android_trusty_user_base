@@ -17,4 +17,5 @@
 /* Aggregates headers to generate Rust bindings for the tipc crate */
 
 #include <app/ipc_unittest/common.h>
+#include <lib/tipc/peer_id.h>
 #include <trusty_ipc.h>
