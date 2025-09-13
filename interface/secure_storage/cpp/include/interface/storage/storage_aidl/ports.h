@@ -15,6 +15,18 @@
  */
 #pragma once
 
-#define STORAGE_ISECURE_STORAGE_PORT "com.android.hardware.security.see.storage"
+// note: this port name shall be constructed as the service name followed by
+// the .bnd suffix.
+// if length is >= 64bytes, the shortened version shall be used,
+// by replacing "android.hardware.security.see" with "ahss".
+// here the full name is 64 bytes so we have to use the shortened uri
+#define STORAGE_ISECURE_STORAGE_PORT "ahss.storage.ISecureStorage/default.bnd"
+
+// note: this port name shall be constructed as the service name prefixed by
+// the "IHandover/" prefix.
+// if length is >= 64bytes, the shortened version shall be used,
+// by replacing "android.hardware.security.see" with "ahss", and by
+// using "hnd" as the suffix.
+// here the full name is 64 bytes so we have to use the shortened uri
 #define STORAGE_ISECURE_STORAGE_HANDOVER_PORT \
     "ahss.storage.ISecureStorage/default.hnd"
