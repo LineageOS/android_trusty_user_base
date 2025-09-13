@@ -20,6 +20,7 @@
 #include <lk/compiler.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <uapi/trusty_peer_id.h>
 #include <uapi/trusty_uuid.h>
 
 __BEGIN_CDECLS
@@ -101,10 +102,21 @@ struct tipc_port {
 };
 
 /**
+ * struct tipc_port_ctx - Handle to an opened tipc port.
+ * Managed by the TIPC service framework.
+ */
+struct tipc_port_ctx;
+
+/**
  * struct tipc_srv_ops - service specific ops (callbacks)
- * @on_connect:    is invoked when a new connection is established.
- * @on_message:    is invoked when a new message is available
- * @on_disconnect: is invoked when the peer terminates connection
+ * @on_connect:         is invoked when a new connection is established. Only
+ *                      invoked when the connecting peer is identified by a
+ *                      uuid.
+ *                      Deprecated to allow a wider set of peer types; use
+ *                      @on_connect_peer_id instead.
+ * @on_connect_peer_id: is invoked when a new connection is established.
+ * @on_message:         is invoked when a new message is available
+ * @on_disconnect:      is invoked when the peer terminates connection
  * @on_channel_cleanup: is invoked to cleanup user allocated state
  *
  * The overall call flow is as follow:
@@ -148,6 +160,12 @@ struct tipc_srv_ops {
                       const struct uuid* peer,
                       void** ctx_p);
 
+    int (*on_connect_peer_id)(const struct tipc_port* port,
+                              handle_t chan,
+                              const struct trusty_peer_id* peer,
+                              size_t peer_len,
+                              void** ctx_p);
+
     int (*on_message)(const struct tipc_port* port, handle_t chan, void* ctx);
 
     void (*on_disconnect)(const struct tipc_port* port,
@@ -162,7 +180,40 @@ struct tipc_srv_ops {
 };
 
 /**
- * tipc_add_service() - Add new service to service set
+ * tipc_add_service_ports() - Adds a new service to the service set (the same as
+ * tipc_add_service() does), but also returns handles for the opened ports to
+ * the caller.
+ *
+ * @hset:         pointer to handle set to add service to
+ * @ports:        an array of &struct tipc_port describing ports for this
+ *                service
+ * @num_ports:    number of ports in array pointed by @ports
+ * @max_chan_cnt: max number of active connections allowed for this service, 0
+ *                for no limit.
+ * @ops:          pointer to &struct tipc_srv_ops with service specific
+ *                callbacks
+ * @ports_out:   An array of length @num_ports. After a successful call,
+ *               @ports_out[i] contains a handle for the opened port configured
+ *               by ports[i].
+ *
+ * Note: the caller retain an ownership of structures pointed by @ports
+ * parameters and should not modify these structures in any way after the
+ * service has beed instantiated. Also, the caller is responsible for keeping
+ * them alive while service is running. The same is true for handle set. In
+ * addition, the caller should not invoke any direct operations on handle set
+ * outside of API's provided by this framework.
+ *
+ * Return: 0 on success, negative error code otherwise
+ */
+int tipc_add_service_ports(struct tipc_hset* hset,
+                           const struct tipc_port* ports,
+                           uint32_t num_ports,
+                           uint32_t max_chan_cnt,
+                           const struct tipc_srv_ops* ops,
+                           struct tipc_port_ctx** ports_out);
+
+/**
+ * tipc_add_service() - Adds a new service to the service set
  * @hset:         pointer to handle set to add service to
  * @ports:        an array of &struct tipc_port describing ports for this
  *                service
@@ -181,10 +232,13 @@ struct tipc_srv_ops {
  *
  * Return: 0 on success, negative error code otherwise
  */
-int tipc_add_service(struct tipc_hset* hset,
-                     const struct tipc_port* ports,
-                     uint32_t num_ports,
-                     uint32_t max_chan_cnt,
-                     const struct tipc_srv_ops* ops);
+static inline int tipc_add_service(struct tipc_hset* hset,
+                                   const struct tipc_port* ports,
+                                   uint32_t num_ports,
+                                   uint32_t max_chan_cnt,
+                                   const struct tipc_srv_ops* ops) {
+    return tipc_add_service_ports(hset, ports, num_ports, max_chan_cnt, ops,
+                                  NULL);
+}
 
 __END_CDECLS
