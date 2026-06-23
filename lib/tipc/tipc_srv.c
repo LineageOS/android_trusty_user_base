@@ -500,3 +500,41 @@ err_no_acl:
 struct tipc_hset* tipc_get_hset(struct tipc_port_ctx* port) {
     return port->srv->hset;
 }
+
+int tipc_remove_service(struct tipc_port_ctx* port) {
+    uint32_t i;
+    int rc;
+
+    if (!port) {
+        return ERR_INVALID_ARGS;
+    }
+
+    struct tipc_srv* srv = port->srv;
+    if (!srv) {
+        return ERR_INVALID_ARGS;
+    }
+
+    /* Remove all ports of the service from the handle set and close them */
+    for (i = 0; i < srv->port_cnt; i++) {
+        struct tipc_port_ctx* p = &srv->ports[i];
+        if (p->handle != INVALID_IPC_HANDLE) {
+            rc = tipc_hset_remove_entry(srv->hset, p->handle);
+            if (rc != NO_ERROR) {
+                TLOGE("failed (%d) to remove port from hset\n", rc);
+            }
+            close(p->handle);
+            p->handle = INVALID_IPC_HANDLE;
+        }
+    }
+
+    /* Close all active channels of the service */
+    struct tipc_chan_ctx* chan;
+    while ((chan = list_peek_head_type(&srv->chan_list, struct tipc_chan_ctx,
+                                       chan_list_node)) != NULL) {
+        tipc_chan_close(chan);
+    }
+
+    free(srv);
+    return 0;
+}
+
