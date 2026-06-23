@@ -225,7 +225,7 @@ int tipc_add_service_ports(struct tipc_hset* hset,
  *
  * Note: the caller retain an ownership of structures pointed by @ports
  * parameters and should not modify these structures in any way after the
- * service has beed instantiated. Also, the caller is responsible for keeping
+ * service has been instantiated. Also, the caller is responsible for keeping
  * them alive while service is running. The same is true for handle set. In
  * addition, the caller should not invoke any direct operations on handle set
  * outside of API's provided by this framework.
@@ -261,5 +261,14 @@ int tipc_add_connection(struct tipc_port_ctx* port,
  * Return: A pointer to the handle set this port's service is running on.
  */
 struct tipc_hset* tipc_get_hset(struct tipc_port_ctx* port);
+
+/**
+ * tipc_remove_service() - Shuts down a service.
+ * @port: A handle to _one of_ the ports of the service to remove. (All other
+ * ports for this service will also be closed.)
+ *
+ * Return: 0 on success, negative error code otherwise
+ */
+int tipc_remove_service(struct tipc_port_ctx* port);
 
 __END_CDECLS
