@@ -18,8 +18,8 @@ HOST_LIB_NAME := ssl
 BORINGSSL_DIR := $(TRUSTY_TOP)/external/boringssl
 
 HOST_ARCH := $(shell uname -m)
-ifneq ($(HOST_ARCH),x86_64)
-$(error Unsupported host architecture: $(HOST_ARCH), expected x86_64)
+ifeq ($(filter $(HOST_ARCH),x86_64 aarch64),)
+$(error Unsupported host architecture: $(HOST_ARCH), expected x86_64 or aarch64)
 endif
 
 include $(BORINGSSL_DIR)/sources.mk
